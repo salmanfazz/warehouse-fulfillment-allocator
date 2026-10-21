@@ -35,6 +35,7 @@ export default defineConfig({
           exclude: ['tests/db/**/*.unit.test.ts'],
           fileParallelism: false,
           globalSetup: ['tests/db/global-setup.ts'],
+          setupFiles: ['tests/db/setup-each-file.ts'],
         },
       },
     ],
