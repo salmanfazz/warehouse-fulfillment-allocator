@@ -18,7 +18,7 @@ function context(over: Partial<PlanContext> = {}): PlanContext {
   return {
     items: itemsOf({ P001: 100, P002: 10 }),
     products: snapshot.products,
-    warehouses: snapshot.warehouses,
+    coldCapableIds: ['W04', 'W07', 'W08'],
     bucket: 'peak',
     chosen: candidate(['W01', 'W04'], 63.75, 355),
     alternatives: [candidate(['W03', 'W04'], 63.75, 455), candidate(['W04', 'W07'], 67.5, 555)],
@@ -60,13 +60,12 @@ describe('sentence 1', () => {
     );
   });
 
-  it('sentence_1_follows_the_flags_not_the_ids', () => {
-    const warehouses = snapshot.warehouses.map((w) =>
-      w.id === 'W02' ? { ...w, hasRefrigeratedVehicle: true } : w,
+  it('explain_uses_the_cold_capable_list_it_is_given', () => {
+    // explain holds no cold-chain rule of its own: it prints the list it receives
+    expect(explainPlan(context({ coldCapableIds: ['W02', 'W04'] }))[0]).toContain(
+      'only W02 and W04 can ship',
     );
-    expect(explainPlan(context({ warehouses }))[0]).toContain(
-      'only W02, W04, W07 and W08 can ship',
-    );
+    expect(explainPlan(context({ coldCapableIds: ['W08'] }))[0]).toContain('only W08 can ship');
   });
 });
 
@@ -137,6 +136,14 @@ describe('sentence 3', () => {
     expect(third({ singleWarehouse })).toBe(
       'Next best was W03 + W04: same time but costs 100 more (455 vs 355); ' +
         'one warehouse (W07) could cover the whole order, but the split scores better on speed and cost together.',
+    );
+  });
+
+  it('single_warehouse_note_says_that_one_warehouse_when_it_is_the_runner_up', () => {
+    const only = candidate(['W07'], 90, 400);
+    expect(third({ alternatives: [only], singleWarehouse: only })).toBe(
+      'Next best was W07: 26 min slower and costs 45 more (400 vs 355); ' +
+        'that one warehouse could cover the whole order, but the split scores better on speed and cost together.',
     );
   });
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PLAN } from '@/config';
 import { rankCandidates, shipmentCost } from '@/domain/plan';
 import type { Product, Snapshot, Warehouse } from '@/domain/types';
 import { baselineSnapshot, itemsOf } from './helpers';
@@ -173,5 +174,59 @@ describe('cost', () => {
   it('shipment_cost_uses_the_flat_part_the_distance_part_and_the_multiplier', () => {
     expect(shipmentCost(warehouse('WX', 10), false)).toBe(100);
     expect(shipmentCost(warehouse('WX', 10), true)).toBeCloseTo(140, 12);
+  });
+});
+
+describe('rankCandidates guards', () => {
+  const snapshot = baselineSnapshot();
+  const etas = Object.fromEntries(snapshot.warehouses.map((w) => [w.id, 50]));
+
+  it('rank_candidates_rejects_duplicate_or_bad_items', () => {
+    const dup = [
+      { productId: 'P001', quantity: 100 },
+      { productId: 'P001', quantity: 150 },
+    ];
+    expect(() => rankCandidates(dup, snapshot, etas)).toThrow(RangeError);
+    for (const quantity of [0, -1, 1.5, Number.NaN]) {
+      expect(() => rankCandidates([{ productId: 'P001', quantity }], snapshot, etas)).toThrow(
+        RangeError,
+      );
+    }
+    expect(() => rankCandidates([], snapshot, etas)).toThrow(RangeError);
+  });
+
+  it('rank_candidates_rejects_a_missing_or_non_finite_eta', () => {
+    const items = itemsOf({ P001: 10 });
+    const { W03: _omitted, ...missing } = etas;
+    expect(() => rankCandidates(items, snapshot, missing)).toThrow(/W03/);
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => rankCandidates(items, snapshot, { ...etas, W03: bad })).toThrow(/W03/);
+    }
+  });
+
+  it('rank_candidates_rejects_more_warehouses_than_the_cap', () => {
+    const many = Array.from({ length: PLAN.maxWarehouses + 1 }, (_, i) =>
+      warehouse(`X${String(i).padStart(2, '0')}`, 10),
+    );
+    const snap = snapshotOf(
+      many,
+      [product('PX')],
+      many.map((w) => [w.id, 'PX', 5] as [string, string, number]),
+    );
+    const manyEtas = Object.fromEntries(many.map((w) => [w.id, 10]));
+    expect(() => rankCandidates(itemsOf({ PX: 1 }), snap, manyEtas)).toThrow(/At most/);
+  });
+
+  it('exactly_the_cap_is_accepted', () => {
+    const many = Array.from({ length: PLAN.maxWarehouses }, (_, i) =>
+      warehouse(`X${String(i).padStart(2, '0')}`, 10),
+    );
+    const snap = snapshotOf(
+      many,
+      [product('PX')],
+      many.map((w) => [w.id, 'PX', 5] as [string, string, number]),
+    );
+    const manyEtas = Object.fromEntries(many.map((w) => [w.id, 10]));
+    expect(rankCandidates(itemsOf({ PX: 1 }), snap, manyEtas).length).toBeGreaterThan(0);
   });
 });

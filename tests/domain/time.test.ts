@@ -96,7 +96,16 @@ describe('minutesOf', () => {
   });
 
   it('rejects_anything_else', () => {
-    for (const bad of ['', '8:00', '24:00', '12:60', 'noon', '12:00:00:00']) {
+    for (const bad of [
+      '',
+      '8:00',
+      '24:00',
+      '12:60',
+      '08:00:60',
+      '08:00:99',
+      'noon',
+      '12:00:00:00',
+    ]) {
       expect(() => minutesOf(bad)).toThrow(RangeError);
     }
   });

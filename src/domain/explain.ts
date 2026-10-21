@@ -1,12 +1,12 @@
 import { ETA, PLAN } from '@/config';
-import type { Bucket, Candidate, FailureFacts, OrderItem, Product, Warehouse } from './types';
+import type { Bucket, Candidate, FailureFacts, OrderItem, Product } from './types';
 
 // Everything the reasons are built from. One entry of `reasons` is one sentence; extra detail
 // goes after a semicolon.
 export type PlanContext = {
   items: OrderItem[];
   products: Product[];
-  warehouses: Warehouse[];
+  coldCapableIds: string[]; // warehouses that can ship cold-chain products, decided by the caller
   bucket: Bucket;
   chosen: Candidate;
   alternatives: Candidate[]; // runner-ups, best first
@@ -26,7 +26,7 @@ export function listIds(ids: string[]): string {
   return `${ids.slice(0, -1).join(', ')} and ${ids[ids.length - 1]}`;
 }
 
-const minutesOf = (c: Candidate) => Math.round(c.slowestMinutes);
+const roundedMinutes = (c: Candidate) => Math.round(c.slowestMinutes);
 const plus = (ids: string[]) => ids.join(' + ');
 const difference = (a: number, b: number) => Number((a - b).toFixed(PLAN.costDecimals));
 
@@ -37,17 +37,14 @@ function whoCanShip(ctx: PlanContext): string {
   if (!orderedCold) {
     return 'None of the ordered products needs cold chain, so any warehouse holding them can ship them.';
   }
-  const capable = ctx.warehouses
-    .filter((w) => w.hasColdStorage && w.hasRefrigeratedVehicle)
-    .map((w) => w.id);
-  return `Vaccines need refrigerated storage and a refrigerated van, so only ${listIds(capable)} can ship them.`;
+  return `Vaccines need refrigerated storage and a refrigerated van, so only ${listIds(ctx.coldCapableIds)} can ship them.`;
 }
 
 function whatWasChosen(ctx: PlanContext): string {
   const { chosen, bucket } = ctx;
   return (
     `Chosen for a ${BUCKET_LABEL[bucket]} order: ${plus(chosen.warehouseIds)}, ` +
-    `about ${minutesOf(chosen)} min and cost ${chosen.cost} (speed and cost weigh equally).`
+    `about ${roundedMinutes(chosen)} min and cost ${chosen.cost} (speed and cost weigh equally).`
   );
 }
 
@@ -56,7 +53,7 @@ function howItCompares(ctx: PlanContext): string {
   const next = ctx.alternatives[0];
   if (!next) return 'No other warehouse combination can cover this order.';
 
-  const minutes = minutesOf(next) - minutesOf(chosen);
+  const minutes = roundedMinutes(next) - roundedMinutes(chosen);
   const cost = difference(next.cost, chosen.cost);
   const timePhrase =
     minutes === 0 ? 'same time' : minutes > 0 ? `${minutes} min slower` : `${-minutes} min faster`;
@@ -67,9 +64,15 @@ function howItCompares(ctx: PlanContext): string {
   const connector = minutes > 0 !== cost > 0 ? 'but' : 'and';
   const note =
     singleWarehouse && chosen.warehouseIds.length > 1
-      ? `; one warehouse (${singleWarehouse.warehouseIds[0]}) could cover the whole order, but the split scores better on speed and cost together`
+      ? `; ${singleWarehouseNote(singleWarehouse, next)} could cover the whole order, but the split scores better on speed and cost together`
       : '';
   return `Next best was ${plus(next.warehouseIds)}: ${timePhrase} ${connector} ${costPhrase}${figures}${note}.`;
+}
+
+// When the runner-up is itself the single warehouse, the sentence has just named it.
+function singleWarehouseNote(single: Candidate, runnerUp: Candidate): string {
+  const same = single.warehouseIds.join('+') === runnerUp.warehouseIds.join('+');
+  return same ? 'that one warehouse' : `one warehouse (${single.warehouseIds[0]})`;
 }
 
 function limitedHistory(ctx: PlanContext): string | null {

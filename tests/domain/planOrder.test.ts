@@ -127,10 +127,12 @@ describe('all eight successful golden cases through planOrder', () => {
     expect(warehouseIds).toEqual([...warehouseIds].sort());
   });
 
-  it('g06_mentions_the_single_warehouse_that_could_have_covered_everything', () => {
+  it('g06_says_that_one_warehouse_could_have_covered_everything', () => {
     const plan = run(byName('G06'));
     expect(plan.shipments.length).toBeGreaterThan(1);
-    expect(plan.reasons[2]).toContain('one warehouse (W07) could cover the whole order');
+    // W07 is also the runner-up, which the sentence has just named
+    expect(plan.reasons[2]).toContain('Next best was W07:');
+    expect(plan.reasons[2]).toContain('that one warehouse could cover the whole order');
   });
 
   it('g02_has_a_limited_history_sentence_for_w08', () => {
@@ -167,6 +169,21 @@ describe('failures', () => {
         shortfalls: [{ productId: 'P999', requested: 2, available: 0 }],
       },
     });
+  });
+});
+
+describe('cold-capable warehouses in the reasons', () => {
+  it('sentence_1_follows_the_warehouse_flags_not_their_ids', () => {
+    const withVan: Snapshot = {
+      ...snapshot,
+      warehouses: snapshot.warehouses.map((w) =>
+        w.id === 'W02' ? { ...w, hasRefrigeratedVehicle: true } : w,
+      ),
+    };
+    const plan = planOf(planOrder(input({ P002: 10 }, '2026-10-20T13:00:00+07:00'), withVan));
+    expect(plan.reasons[0]).toBe(
+      'Vaccines need refrigerated storage and a refrigerated van, so only W02, W04, W07 and W08 can ship them.',
+    );
   });
 });
 

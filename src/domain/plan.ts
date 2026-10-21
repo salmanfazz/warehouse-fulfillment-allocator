@@ -22,10 +22,12 @@ const byProductId = (a: OrderItem, b: OrderItem) =>
 
 // A cold-chain product can only ship from a warehouse with both cold storage and a
 // refrigerated vehicle. Decided by the two flags, never by warehouse id.
+export function isColdCapable(warehouse: Warehouse): boolean {
+  return warehouse.hasColdStorage && warehouse.hasRefrigeratedVehicle;
+}
+
 export function canShip(warehouse: Warehouse, product: Product): boolean {
-  return (
-    !product.requiresColdChain || (warehouse.hasColdStorage && warehouse.hasRefrigeratedVehicle)
-  );
+  return !product.requiresColdChain || isColdCapable(warehouse);
 }
 
 // What stops this order from being fulfilled, or null if shippable stock covers all of it.
@@ -134,6 +136,15 @@ function compareIdLists(a: string[], b: string[]): number {
 // fewer shipments and then to the smaller warehouse ids. The caller has already ruled out
 // unknown products (findFailure).
 export function rankCandidates(items: OrderItem[], snapshot: Snapshot, etas: Etas): Candidate[] {
+  checkItems(items);
+  if (snapshot.warehouses.length > PLAN.maxWarehouses) {
+    throw new RangeError(`At most ${PLAN.maxWarehouses} warehouses are supported`);
+  }
+  for (const warehouse of snapshot.warehouses) {
+    if (!Number.isFinite(etas[warehouse.id])) {
+      throw new Error(`No delivery time estimate for ${warehouse.id}`);
+    }
+  }
   const ordered = [...items].sort(byProductId);
   const products = new Map(snapshot.products.map((p) => [p.id, p]));
   const stock = new Map(
@@ -168,6 +179,8 @@ export function rankCandidates(items: OrderItem[], snapshot: Snapshot, etas: Eta
     });
   }
 
+  // toFixed rounds exact binary halves up, Python's round() to even; a score landing exactly on
+  // such a half (and deciding a tie) is vanishingly unlikely, and the reference cases agree.
   const tieScore = (c: Candidate) => Number(c.score.toFixed(PLAN.scoreTieDecimals));
   return candidates.sort(
     (a, b) =>
@@ -247,7 +260,7 @@ export function planOrder(input: OrderInput, snapshot: Snapshot): PlanOutcome {
     reasons: explainPlan({
       items,
       products: snapshot.products,
-      warehouses: snapshot.warehouses,
+      coldCapableIds: snapshot.warehouses.filter(isColdCapable).map((w) => w.id),
       bucket,
       chosen,
       alternatives,

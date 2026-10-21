@@ -33,6 +33,9 @@ export const PLAN = {
   coldMultiplier: 1.4,
   // Runner-up plans returned next to the chosen one.
   maxAlternatives: 2,
+  // The search tries every group of warehouses (2 to the power of the warehouse count). This keeps
+  // it fast and well under the 31-bit mask limit; the demo has 8.
+  maxWarehouses: 12,
   // Costs are shown rounded to this many decimals, which removes float noise such as 244.99999999999997.
   costDecimals: 4,
   // Scores that agree to this many decimals count as tied, so float noise cannot decide a ranking.

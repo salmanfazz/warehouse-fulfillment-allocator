@@ -69,7 +69,10 @@ export function minutesOf(time: string): number {
   const match = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(time);
   const hours = Number(match?.[1]);
   const minutes = Number(match?.[2]);
-  if (!match || hours > 23 || minutes > 59) throw new RangeError(`Not a time of day: ${time}`);
+  const seconds = Number(match?.[3] ?? 0);
+  if (!match || hours > 23 || minutes > 59 || seconds > 59) {
+    throw new RangeError(`Not a time of day: ${time}`);
+  }
   return hours * 60 + minutes;
 }
 
