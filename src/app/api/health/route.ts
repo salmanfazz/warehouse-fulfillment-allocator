@@ -15,4 +15,4 @@ export const GET = withEnvelope(async () => {
   return ok({ status: 'ok' }, 'Database reachable', { headers: { 'Cache-Control': 'no-store' } });
 });
 
-export const { POST, PUT, PATCH, DELETE } = notAllowed('GET');
+export const { POST, PUT, PATCH, DELETE, OPTIONS } = notAllowed('GET');

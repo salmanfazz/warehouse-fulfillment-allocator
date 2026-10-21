@@ -98,3 +98,26 @@ describe('catch-all', () => {
     },
   );
 });
+
+describe('OPTIONS', () => {
+  it('options_on_health_is_200_enveloped_with_allow_get', async () => {
+    const res = await health.OPTIONS(request('/api/health', 'OPTIONS'), undefined);
+    const body = await read(res);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('allow')).toBe('GET');
+    expect(body).toMatchObject({ info: 'OK', data: null });
+  });
+
+  it('options_allow_equals_the_405_allow', async () => {
+    const options = await health.OPTIONS(request('/api/health', 'OPTIONS'), undefined);
+    const post = await health.POST(request('/api/health', 'POST'), undefined);
+    expect(options.headers.get('allow')).toBe(post.headers.get('allow'));
+  });
+
+  it('options_in_the_catch_all_is_404_enveloped', async () => {
+    const res = await catchAll.OPTIONS(request('/api/nope', 'OPTIONS'), undefined);
+    const body = await read(res);
+    expect(res.status).toBe(404);
+    expect(body.data).toBeNull();
+  });
+});

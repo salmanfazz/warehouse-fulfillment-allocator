@@ -13,6 +13,11 @@ process.env.GUARD_APP_DATABASE_URL = process.env.DATABASE_URL ?? '';
 if (process.env.TEST_DATABASE_URL) process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 else delete process.env.DATABASE_URL;
 
+// The other secrets in .env.local are not needed by any test. Removing them means a test that
+// forgot to stub one cannot use (or print) the real value; tests that need one stub a throwaway.
+delete process.env.CRON_SECRET;
+delete process.env.VERCEL_OIDC_TOKEN;
+
 const alias = { '@': fileURLToPath(new URL('./src', import.meta.url)) };
 
 export default defineConfig({

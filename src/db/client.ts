@@ -46,3 +46,10 @@ export function getSql(): Sql {
   }
   return holder.__sql;
 }
+
+// Ends the shared client and forgets it; a later getSql() makes a new one. For tests and shutdown.
+export async function closeSql(): Promise<void> {
+  const client = holder.__sql;
+  holder.__sql = undefined;
+  await client?.end();
+}
