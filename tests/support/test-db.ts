@@ -64,3 +64,18 @@ export async function ensureRoles(sql: Sql) {
     );
   }
 }
+
+// Second line of defence after the host check: the test database is rebuilt from nothing, so
+// refuse one that looks like a real Supabase database (a local Supabase stack, or a tunnel to
+// the real project that happens to appear on 127.0.0.1). Plain Postgres has neither.
+export async function assertLooksThrowaway(sql: Sql) {
+  const [row] = await sql<{ auth_schema: boolean; supabase_admin: boolean }[]>`
+    select exists (select 1 from pg_namespace where nspname = 'auth') as auth_schema,
+           exists (select 1 from pg_roles where rolname = 'supabase_admin') as supabase_admin`;
+  if (row?.auth_schema || row?.supabase_admin) {
+    throw new Error(
+      'The test database has an auth schema or a supabase_admin role, so it looks like a real ' +
+        'Supabase database. Tests rebuild the public schema and will not run against it.',
+    );
+  }
+}
