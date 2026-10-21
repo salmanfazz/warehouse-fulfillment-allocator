@@ -6,7 +6,7 @@ type Props = {
   products: Product[] | null;
   changes: Record<string, number>;
   version: number; // grows with every refresh, so the highlight replays
-  loadError: string | null; // the first load failed and there is nothing to show
+  loadError: string | null; // the first load did not bring both products and stock; Retry asks again
   notice: string | null; // a later refresh failed; the last view is still shown
   busy: boolean;
   onRefresh: () => void;
@@ -37,7 +37,7 @@ export function StockTable({
         </p>
       )}
 
-      {loadError && !warehouses && (
+      {loadError && (
         <div className="notice notice-error" role="alert">
           <p>{loadError}</p>
           <p>

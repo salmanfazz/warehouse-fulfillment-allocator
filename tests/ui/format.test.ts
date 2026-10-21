@@ -81,15 +81,31 @@ describe('cold chain', () => {
 describe('failureMessage', () => {
   const envelope = (status: number, info: string) => ({ kind: 'envelope' as const, status, info });
 
-  it('a_server_error_that_answered_means_nothing_happened_because_orders_are_atomic', () => {
+  it('a_5xx_on_place_or_reset_does_not_prove_that_nothing_happened', () => {
+    // a connection can drop while COMMIT is in flight, and the server then answers 503
     expect(failureMessage('place', envelope(503, 'Database unavailable'))).toBe(
-      'Database unavailable. Nothing was reserved.',
+      'Database unavailable. The order may have been placed; check the stock before trying again.',
     );
+    expect(failureMessage('place', envelope(500, 'Something went wrong'))).toBe(
+      'Something went wrong. The order may have been placed; check the stock before trying again.',
+    );
+    expect(failureMessage('reset', envelope(503, 'Database unavailable'))).toBe(
+      'Database unavailable. The reset may not have happened; refresh the stock to check.',
+    );
+  });
+
+  it('a_preview_never_writes_so_any_failure_says_nothing_was_reserved', () => {
     expect(failureMessage('preview', envelope(500, 'Something went wrong'))).toBe(
       'Something went wrong. Nothing was reserved.',
     );
-    expect(failureMessage('reset', envelope(503, 'Database unavailable'))).toBe(
-      'Database unavailable. Nothing was changed.',
+  });
+
+  it('a_4xx_answer_means_the_request_was_refused_before_any_write', () => {
+    expect(failureMessage('place', envelope(405, 'Method not allowed'))).toBe(
+      'Method not allowed. Nothing was reserved.',
+    );
+    expect(failureMessage('reset', envelope(404, 'Not found'))).toBe(
+      'Not found. Nothing was changed.',
     );
   });
 
@@ -115,7 +131,7 @@ describe('failureMessage', () => {
   });
 
   it('an_info_that_already_ends_with_a_full_stop_is_not_doubled', () => {
-    expect(failureMessage('place', envelope(500, 'Something went wrong.'))).toBe(
+    expect(failureMessage('preview', envelope(500, 'Something went wrong.'))).toBe(
       'Something went wrong. Nothing was reserved.',
     );
   });

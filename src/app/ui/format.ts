@@ -45,9 +45,10 @@ export type Failure =
   | { kind: 'unexpected'; status: number }
   | { kind: 'envelope'; status: number; info: string };
 
-// What to tell the user when a request did not succeed and was not a rejected order. A server
-// that answered with an error has rolled everything back, so "nothing was reserved" is true. With
-// no usable answer the outcome of a place or reset is unknown, and the message says so.
+// What to tell the user when a request did not succeed and was not a rejected order. A preview
+// never writes, and a 4xx answer means the request was refused before any write, so "nothing was
+// reserved" is true. A 5xx can come from a connection that dropped while the commit was in flight,
+// and with no usable answer at all nothing is known: for a place or reset the message says so.
 export function failureMessage(action: Action, failure: Failure): string {
   const sure = action === 'reset' ? 'Nothing was changed.' : 'Nothing was reserved.';
   const unsure =
@@ -60,5 +61,5 @@ export function failureMessage(action: Action, failure: Failure): string {
   if (failure.kind === 'unexpected') {
     return `The server did not answer properly (status ${failure.status}). ${unsure}`;
   }
-  return `${failure.info.replace(/\.$/, '')}. ${sure}`;
+  return `${failure.info.replace(/\.$/, '')}. ${failure.status < 500 ? sure : unsure}`;
 }

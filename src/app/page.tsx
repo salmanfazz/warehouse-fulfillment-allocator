@@ -2,23 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { callApi } from './ui/api';
-import {
-  buildBody,
-  checkRows,
-  mapServerErrors,
-  newRow,
-  type Checked,
-  type Row,
-  type RowErrors,
-} from './ui/form';
-import { failureMessage, type Action } from './ui/format';
+import { buildBody, checkRows, newRow, type Checked, type Row, type RowErrors } from './ui/form';
+import type { Action } from './ui/format';
 import { OrderForm } from './ui/OrderForm';
+import { outcomeOf } from './ui/outcome';
 import { ResultPanel } from './ui/ResultPanel';
 import { stockChanges } from './ui/stock';
 import { StockTable } from './ui/StockTable';
 import { currentWibInput, orderedAtFromInput } from './ui/time';
-import type { Shortfall } from '@/domain/types';
-import type { PlanData, Product, ResultState, WarehouseData } from './ui/types';
+import type { Product, ResultState, WarehouseData } from './ui/types';
 
 const PATHS: Record<Action, string> = {
   preview: '/api/v1/orders/preview',
@@ -146,62 +138,10 @@ export default function Home() {
     setBusy(action);
     try {
       const res = await callApi<unknown>(PATHS[action], { method: 'POST', body });
-
-      if (res.kind !== 'envelope') {
-        setResult({ kind: 'failed', message: failureMessage(action, res) });
-        if (action !== 'preview') await loadStock();
-        return;
-      }
-      const { status, body: envelope } = res;
-
-      if (status === 200 || status === 201) {
-        if (action === 'reset') {
-          setResult({ kind: 'reset' });
-          await loadStock();
-        } else {
-          setResult({ kind: 'plan', placed: action === 'place', plan: envelope.data as PlanData });
-          if (action === 'place') await loadStock();
-        }
-        return;
-      }
-
-      if (status === 400 && action !== 'reset') {
-        const errors =
-          (envelope.data as { errors?: { field: string; message: string }[] } | null)?.errors ?? [];
-        const { byRow, general } = mapServerErrors(errors, sentRowIds);
-        setRowErrors(byRow);
-        const lines = [
-          ...Object.entries(byRow).flatMap(([id, problem]) => {
-            const index = rows.findIndex((r) => r.id === Number(id)) + 1;
-            return Object.entries(problem).map(
-              ([field, message]) =>
-                `Item ${index}, ${field === 'productId' ? 'product' : 'quantity'}: ${message}`,
-            );
-          }),
-          ...general,
-        ];
-        setResult({ kind: 'invalid', info: envelope.info, lines });
-        return;
-      }
-
-      if (status === 422) {
-        const data = envelope.data as { reason: string; shortfalls?: Shortfall[] };
-        setResult({
-          kind: 'rejected',
-          placed: action === 'place',
-          info: envelope.info,
-          reason: data.reason,
-          shortfalls: data.shortfalls ?? [],
-        });
-        if (action === 'place') await loadStock();
-        return;
-      }
-
-      setResult({
-        kind: 'failed',
-        message: failureMessage(action, { kind: 'envelope', status, info: envelope.info }),
-      });
-      if (action !== 'preview') await loadStock();
+      const outcome = outcomeOf(action, res, rows, sentRowIds);
+      if (outcome.rowErrors) setRowErrors(outcome.rowErrors);
+      setResult(outcome.result);
+      if (outcome.refreshStock) await loadStock();
     } finally {
       running.current = false;
       setBusy(null);
@@ -257,7 +197,7 @@ export default function Home() {
           notice={stockNotice}
           busy={busy !== null}
           onRefresh={() => {
-            if (warehouses) {
+            if (warehouses && products) {
               void loadStock();
             } else {
               setLoadError(null); // Retry: show the loading state again
