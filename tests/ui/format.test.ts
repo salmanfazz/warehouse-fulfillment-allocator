@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   canShipCold,
   coldChainLabel,
+  failureMessage,
   formatChange,
   formatNumber,
   itemsText,
@@ -74,5 +75,48 @@ describe('cold chain', () => {
     expect(canShipCold(storageOnly)).toBe(false);
     expect(canShipCold(vanOnly)).toBe(false);
     expect(canShipCold(neither)).toBe(false);
+  });
+});
+
+describe('failureMessage', () => {
+  const envelope = (status: number, info: string) => ({ kind: 'envelope' as const, status, info });
+
+  it('a_server_error_that_answered_means_nothing_happened_because_orders_are_atomic', () => {
+    expect(failureMessage('place', envelope(503, 'Database unavailable'))).toBe(
+      'Database unavailable. Nothing was reserved.',
+    );
+    expect(failureMessage('preview', envelope(500, 'Something went wrong'))).toBe(
+      'Something went wrong. Nothing was reserved.',
+    );
+    expect(failureMessage('reset', envelope(503, 'Database unavailable'))).toBe(
+      'Database unavailable. Nothing was changed.',
+    );
+  });
+
+  it('no_answer_at_all_is_honest_about_what_is_unknown', () => {
+    expect(failureMessage('place', { kind: 'network' })).toBe(
+      'Could not reach the server. The order may have been placed; check the stock before trying again.',
+    );
+    expect(failureMessage('reset', { kind: 'network' })).toBe(
+      'Could not reach the server. The reset may not have happened; refresh the stock to check.',
+    );
+    expect(failureMessage('preview', { kind: 'network' })).toBe(
+      'Could not reach the server. Nothing was reserved.',
+    );
+  });
+
+  it('an_answer_that_is_not_the_envelope_names_the_status', () => {
+    expect(failureMessage('place', { kind: 'unexpected', status: 502 })).toBe(
+      'The server did not answer properly (status 502). The order may have been placed; check the stock before trying again.',
+    );
+    expect(failureMessage('preview', { kind: 'unexpected', status: 200 })).toBe(
+      'The server did not answer properly (status 200). Nothing was reserved.',
+    );
+  });
+
+  it('an_info_that_already_ends_with_a_full_stop_is_not_doubled', () => {
+    expect(failureMessage('place', envelope(500, 'Something went wrong.'))).toBe(
+      'Something went wrong. Nothing was reserved.',
+    );
   });
 });

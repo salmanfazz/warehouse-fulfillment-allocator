@@ -38,3 +38,27 @@ export function coldChainLabel(w: ColdFlags): string {
   if (w.hasRefrigeratedVehicle) return 'van only';
   return 'none';
 }
+
+export type Action = 'preview' | 'place' | 'reset';
+export type Failure =
+  | { kind: 'network' }
+  | { kind: 'unexpected'; status: number }
+  | { kind: 'envelope'; status: number; info: string };
+
+// What to tell the user when a request did not succeed and was not a rejected order. A server
+// that answered with an error has rolled everything back, so "nothing was reserved" is true. With
+// no usable answer the outcome of a place or reset is unknown, and the message says so.
+export function failureMessage(action: Action, failure: Failure): string {
+  const sure = action === 'reset' ? 'Nothing was changed.' : 'Nothing was reserved.';
+  const unsure =
+    action === 'place'
+      ? 'The order may have been placed; check the stock before trying again.'
+      : action === 'reset'
+        ? 'The reset may not have happened; refresh the stock to check.'
+        : sure;
+  if (failure.kind === 'network') return `Could not reach the server. ${unsure}`;
+  if (failure.kind === 'unexpected') {
+    return `The server did not answer properly (status ${failure.status}). ${unsure}`;
+  }
+  return `${failure.info.replace(/\.$/, '')}. ${sure}`;
+}
