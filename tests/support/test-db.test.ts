@@ -63,4 +63,27 @@ describe('assertSafeTestDatabase', () => {
       expect(message(url, app)).not.toContain('secretpw');
     }
   });
+
+  // postgres.js reads the part after the FIRST "@" and treats commas as a list of hosts,
+  // while `new URL` reads after the LAST "@". The guard must judge what postgres.js will use.
+  it('throws_on_a_multi_host_url_whose_first_host_is_remote', () => {
+    const sneaky = 'postgres://u:secretpw@attacker.invalid,x@localhost:5433/db';
+    expect(message(sneaky)).toMatch(/localhost or 127\.0\.0\.1/);
+    expect(message(sneaky)).not.toContain('secretpw');
+  });
+
+  it('throws_when_any_host_in_a_list_is_remote', () => {
+    expect(message('postgres://u:p@localhost:5433,db.example.com:5432/db')).toMatch(/example\.com/);
+  });
+
+  it('never_prints_an_odd_looking_host_that_could_hold_a_password', () => {
+    expect(message('postgres://u:p@evil.invalid,secretpw@localhost/db')).not.toContain('secretpw');
+  });
+
+  it('treats_a_host_list_that_includes_the_app_database_as_the_same_database', () => {
+    const app = 'postgres://postgres:apppw@127.0.0.1:5433/postgres';
+    expect(message('postgres://u:p@localhost:5433,127.0.0.1:5434/postgres', app)).toMatch(
+      /same database/,
+    );
+  });
 });

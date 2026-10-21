@@ -4,7 +4,10 @@ import { assertSafeTestDatabase } from '../support/test-db';
 
 // A client for the test database. Max 5 so concurrent work really runs concurrently.
 export function testSql(): Sql {
-  const url = assertSafeTestDatabase(process.env.TEST_DATABASE_URL, process.env.DATABASE_URL);
+  const url = assertSafeTestDatabase(
+    process.env.TEST_DATABASE_URL,
+    process.env.GUARD_APP_DATABASE_URL,
+  );
   return createSql(url, { max: 5 });
 }
 

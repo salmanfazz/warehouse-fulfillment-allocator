@@ -1,24 +1,23 @@
 import type { Sql } from 'postgres';
+import { connectionTargets } from '@/db/client';
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1']);
 
-function parse(url: string | undefined): URL | null {
-  if (!url) return null;
-  try {
-    return new URL(url);
-  } catch {
-    return null;
-  }
-}
-
 // Same machine, port and database name. localhost and 127.0.0.1 count as the same machine.
-function identity(url: URL): string {
-  const host = url.hostname === 'localhost' ? '127.0.0.1' : url.hostname;
-  return `${host}:${url.port || '5432'}${url.pathname}`;
+function identities(url: string): Set<string> {
+  const { hosts, ports, database } = connectionTargets(url);
+  return new Set(
+    hosts.map((host, i) => `${host === 'localhost' ? '127.0.0.1' : host}:${ports[i]}/${database}`),
+  );
 }
 
-// Database tests wipe tables, so they must never run against the real database.
-// Messages name the host only, never the password.
+// Only plain host names are echoed back. Anything odd could hold part of a password.
+function printable(host: string): string {
+  return /^[A-Za-z0-9.-]+$/.test(host) ? host : '<unusual>';
+}
+
+// Database tests wipe tables, so they must never run against the real database. Hosts are read
+// the way postgres.js reads them (see connectionTargets). Messages never contain the password.
 export function assertSafeTestDatabase(testUrl: string | undefined, appUrl: string | undefined) {
   if (!testUrl) {
     throw new Error(
@@ -26,16 +25,28 @@ export function assertSafeTestDatabase(testUrl: string | undefined, appUrl: stri
         'Start it with: docker start allocator-test-pg (see docs/setup.md).',
     );
   }
-  const test = parse(testUrl);
-  if (!test) throw new Error('TEST_DATABASE_URL is not a valid URL.');
-  if (!LOCAL_HOSTS.has(test.hostname)) {
+  let hosts: string[];
+  try {
+    hosts = connectionTargets(testUrl).hosts;
+  } catch {
+    throw new Error('TEST_DATABASE_URL is not a valid URL.');
+  }
+  const remote = hosts.find((host) => !LOCAL_HOSTS.has(host));
+  if (remote !== undefined) {
     throw new Error(
-      `TEST_DATABASE_URL must point at localhost or 127.0.0.1 (found host "${test.hostname}").`,
+      `TEST_DATABASE_URL must point at localhost or 127.0.0.1 (found host "${printable(remote)}").`,
     );
   }
-  const app = parse(appUrl);
-  if (app && identity(app) === identity(test)) {
-    throw new Error('TEST_DATABASE_URL points at the same database as DATABASE_URL.');
+  if (appUrl) {
+    let appIds: Set<string> | null = null;
+    try {
+      appIds = identities(appUrl);
+    } catch {
+      // an unparseable app URL cannot be the same database
+    }
+    if (appIds && [...identities(testUrl)].some((id) => appIds.has(id))) {
+      throw new Error('TEST_DATABASE_URL points at the same database as DATABASE_URL.');
+    }
   }
   return testUrl;
 }

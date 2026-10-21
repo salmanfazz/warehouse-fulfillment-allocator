@@ -6,7 +6,10 @@ import { assertSafeTestDatabase, ensureRoles } from '../support/test-db';
 // Rebuilds the test database from nothing so every run starts the same way.
 // The guard makes sure this can only ever touch a local throwaway database.
 export default async function setup() {
-  const url = assertSafeTestDatabase(process.env.TEST_DATABASE_URL, process.env.DATABASE_URL);
+  const url = assertSafeTestDatabase(
+    process.env.TEST_DATABASE_URL,
+    process.env.GUARD_APP_DATABASE_URL,
+  );
   const sql = createSql(url, { max: 1 });
   try {
     await sql
