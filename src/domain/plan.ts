@@ -1,8 +1,15 @@
 import { PLAN } from '@/config';
+import { etaFor } from './eta';
+import { explainFailure, explainPlan } from './explain';
+import { formatWib, parseOrderedAt, toWib } from './time';
 import type {
   Allocation,
   Candidate,
   FailureFacts,
+  OrderInput,
+  OrderPlan,
+  PlanOutcome,
+  Shipment,
   OrderItem,
   Product,
   ShortfallFact,
@@ -168,4 +175,93 @@ export function rankCandidates(items: OrderItem[], snapshot: Snapshot, etas: Eta
       a.warehouseIds.length - b.warehouseIds.length ||
       compareIdLists(a.warehouseIds, b.warehouseIds),
   );
+}
+
+// Programmer errors, not user errors: the HTTP layer validates before calling the domain.
+function checkItems(items: OrderItem[]): void {
+  if (items.length === 0) throw new RangeError('An order needs at least one item');
+  if (new Set(items.map((i) => i.productId)).size !== items.length) {
+    throw new RangeError('An order cannot list the same product twice');
+  }
+  if (items.some((i) => !Number.isInteger(i.quantity) || i.quantity < 1)) {
+    throw new RangeError('Quantities must be whole numbers of at least 1');
+  }
+}
+
+// Plans an order, or says why it cannot be fulfilled. Pure: the same input and snapshot
+// always give the same answer.
+export function planOrder(input: OrderInput, snapshot: Snapshot): PlanOutcome {
+  checkItems(input.items);
+  const orderedMs = parseOrderedAt(input.orderedAt);
+  const items = [...input.items].sort(byProductId);
+
+  const facts = findFailure(items, snapshot);
+  if (facts) {
+    const shortfalls = facts.shortfalls.map(({ productId, requested, available }) => ({
+      productId,
+      requested,
+      available,
+    }));
+    return {
+      ok: false,
+      failure: { reason: facts.reason, info: explainFailure(facts, snapshot.products), shortfalls },
+    };
+  }
+
+  const { bucket } = toWib(orderedMs);
+  const etas = Object.fromEntries(
+    snapshot.warehouses.map((w) => [w.id, etaFor(snapshot.eta, w.id, bucket)]),
+  );
+  const ranked = rankCandidates(items, snapshot, etas);
+  const chosen = ranked[0];
+  // Stock covers the order, so some group of warehouses must be able to ship it.
+  if (!chosen) throw new Error('No candidate plan although shippable stock covers the order');
+  const alternatives = ranked.slice(1, 1 + PLAN.maxAlternatives);
+
+  const products = new Map(snapshot.products.map((p) => [p.id, p]));
+  const shipments: Shipment[] = chosen.warehouseIds.map((id) => {
+    const warehouse = snapshot.warehouses.find((w) => w.id === id) as Warehouse;
+    const lines = Object.entries(chosen.allocation[id] as Record<string, number>).sort(
+      ([a], [b]) => (a < b ? -1 : 1),
+    );
+    const hasColdItem = lines.some(([productId]) => products.get(productId)?.requiresColdChain);
+    return {
+      warehouseId: id,
+      city: warehouse.city,
+      distanceKm: warehouse.distanceKm,
+      vehicle: hasColdItem ? 'refrigerated' : 'standard',
+      items: lines.map(([productId, quantity]) => ({ productId, quantity })),
+      minutes: Math.round(etas[id] as number),
+      cost: roundTo(shipmentCost(warehouse, hasColdItem), PLAN.costDecimals),
+    };
+  });
+
+  const recordsInBucket = Object.fromEntries(
+    chosen.warehouseIds.map((id) => [id, snapshot.eta[id]?.buckets[bucket].n ?? 0]),
+  );
+  const plan: OrderPlan = {
+    orderedAt: formatWib(orderedMs),
+    shipments,
+    totalMinutes: Math.max(...shipments.map((s) => s.minutes)),
+    totalCost: chosen.cost,
+    reasons: explainPlan({
+      items,
+      products: snapshot.products,
+      warehouses: snapshot.warehouses,
+      bucket,
+      chosen,
+      alternatives,
+      singleWarehouse:
+        chosen.warehouseIds.length > 1
+          ? (ranked.find((c) => c.warehouseIds.length === 1) ?? null)
+          : null,
+      recordsInBucket,
+    }),
+    alternatives: alternatives.map((c) => ({
+      warehouseIds: c.warehouseIds,
+      totalMinutes: Math.round(c.slowestMinutes),
+      totalCost: c.cost,
+    })),
+  };
+  return { ok: true, plan };
 }
