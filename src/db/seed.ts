@@ -19,7 +19,7 @@ export function parseDeliveryCsv(text: string): DeliveryRow[] {
   const [header, ...lines] = text.split(/\r?\n/).filter((line) => line.trim() !== '');
   if (header?.trim() !== CSV_HEADER) throw new Error(`Unexpected CSV header: ${header}`);
   return lines.map((line, i) => {
-    const fields = line.split(',');
+    const fields = line.split(',').map((field) => field.trim());
     if (fields.length !== 6) {
       throw new Error(`CSV line ${i + 2}: expected 6 fields, found ${fields.length}`);
     }
@@ -30,6 +30,8 @@ export function parseDeliveryCsv(text: string): DeliveryRow[] {
       string,
       string,
     ];
+    if (!id || !warehouse_id)
+      throw new Error(`CSV line ${i + 2}: id and warehouse_id must not be empty`);
     if (!/^\d+$/.test(duration))
       throw new Error(`CSV line ${i + 2}: duration is not a whole number`);
     return { id, warehouse_id, day, start_time, duration_min: Number(duration) };

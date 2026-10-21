@@ -14,6 +14,10 @@ const DOWN_CODES = new Set([
   'CONNECTION_ENDED',
   '53300', // too many connections
   '57P01', // admin shutdown
+  '57P03', // cannot connect now (starting up)
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  '55P03', // lock timeout: a row stayed locked too long, so the system is busy; try again
 ]);
 
 export function isDatabaseDown(err: unknown): boolean {

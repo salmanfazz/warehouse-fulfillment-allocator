@@ -1,3 +1,4 @@
+import { DB } from '@/config';
 import { createSql } from '@/db/client';
 import { migrate } from '@/db/migrate';
 import { seed } from '@/db/seed';
@@ -10,7 +11,7 @@ export default async function setup() {
     process.env.TEST_DATABASE_URL,
     process.env.GUARD_APP_DATABASE_URL,
   );
-  const sql = createSql(url, { max: 1 });
+  const sql = createSql(url, { max: DB.scriptPoolMax });
   try {
     await sql
       .unsafe(

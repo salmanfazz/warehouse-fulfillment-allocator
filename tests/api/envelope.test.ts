@@ -162,4 +162,26 @@ describe('envelope', () => {
     expect(line.guid).toBe(body.guid);
     expect(line.message).toBe('DATABASE_URL is not set');
   });
+
+  it('unreachable_busy_and_lock_timeout_errors_are_503', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    for (const code of ['EHOSTUNREACH', 'ENETUNREACH', '57P03', '55P03']) {
+      const { res, body } = await run(() => {
+        throw Object.assign(new Error(`failure ${code}`), { code });
+      });
+      expect(res.status, code).toBe(503);
+      expectEnvelope(res, body);
+      expect(body.info, code).toBe('Service temporarily unavailable');
+    }
+  });
+
+  it('authentication_and_other_database_errors_stay_500', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    for (const code of ['28P01', '28000', '42P01', '23514']) {
+      const { res } = await run(() => {
+        throw Object.assign(new Error(`failure ${code}`), { code });
+      });
+      expect(res.status, code).toBe(500);
+    }
+  });
 });

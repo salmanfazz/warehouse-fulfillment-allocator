@@ -1,3 +1,4 @@
+import { DB } from '../src/config';
 import { createSql } from '../src/db/client';
 import { migrate } from '../src/db/migrate';
 import { seed } from '../src/db/seed';
@@ -7,7 +8,7 @@ async function main() {
   const command = process.argv[2];
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is not set');
-  const sql = createSql(url, { max: 1 });
+  const sql = createSql(url, { max: DB.scriptPoolMax });
   try {
     if (command === 'migrate') {
       const applied = await migrate(sql);

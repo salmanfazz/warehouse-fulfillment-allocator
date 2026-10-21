@@ -119,6 +119,24 @@ describe('parseDeliveryCsv', () => {
     expect(() => parseDeliveryCsv(`${header}\nDL001,W01,Mon,08:00,50`)).toThrow(/line 2.*6 fields/);
   });
 
+  it('csv_fields_are_trimmed', () => {
+    const header = 'delivery_id,warehouse_id,day,start_time,duration_min,notes';
+    const [row] = parseDeliveryCsv(`${header}\n DL001 , W01 , Mon , 08:00 , 50 ,`);
+    expect(row).toEqual({
+      id: 'DL001',
+      warehouse_id: 'W01',
+      day: 'Mon',
+      start_time: '08:00',
+      duration_min: 50,
+    });
+  });
+
+  it('csv_rejects_an_empty_id_or_warehouse', () => {
+    const header = 'delivery_id,warehouse_id,day,start_time,duration_min,notes';
+    expect(() => parseDeliveryCsv(`${header}\n,W01,Mon,08:00,50,`)).toThrow(/line 2.*empty/);
+    expect(() => parseDeliveryCsv(`${header}\nDL001, ,Mon,08:00,50,`)).toThrow(/line 2.*empty/);
+  });
+
   it('rejects_an_unexpected_header', () => {
     expect(() => parseDeliveryCsv('a,b,c\nx,y,z')).toThrow(/header/);
   });
