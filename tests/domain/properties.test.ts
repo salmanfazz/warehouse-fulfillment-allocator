@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canShip, planOrder, rankCandidates } from '@/domain/plan';
+import { planOrder, rankCandidates } from '@/domain/plan';
 import { etaFor } from '@/domain/eta';
 import { parseOrderedAt, toWib } from '@/domain/time';
 import type { Snapshot, StockRow } from '@/domain/types';
@@ -52,25 +52,46 @@ describe('planOrder properties', () => {
       const label = `seed ${seed}`;
       const outcome = planOrder({ items, orderedAt }, snapshot);
 
-      // Independent view of what can be shipped, from the flags.
+      // An independent view of the rules, written out here and not borrowed from the code under test:
+      // a cold-chain product ships only from a warehouse with both flags.
       const productById = new Map(snapshot.products.map((p) => [p.id, p]));
       const warehouseById = new Map(snapshot.warehouses.map((w) => [w.id, w]));
-      const shippable = (productId: string) =>
+      const held = (productId: string, onlyShippable: boolean) =>
         snapshot.stock
-          .filter(
-            (s) =>
-              s.productId === productId &&
-              canShip(warehouseById.get(s.warehouseId)!, productById.get(productId)!),
-          )
+          .filter((s) => {
+            if (s.productId !== productId) return false;
+            if (!onlyShippable || !productById.get(productId)!.requiresColdChain) return true;
+            const w = warehouseById.get(s.warehouseId)!;
+            return w.hasColdStorage && w.hasRefrigeratedVehicle;
+          })
           .reduce((sum, s) => sum + s.quantity, 0);
-      const coverable = items.every((i) => shippable(i.productId) >= i.quantity);
-      expect(outcome.ok, label).toBe(coverable);
+      const expectedShortfalls = [...items]
+        .sort((a, b) => (a.productId < b.productId ? -1 : 1))
+        .map((i) => ({
+          item: i,
+          available: held(i.productId, true),
+          network: held(i.productId, false),
+        }))
+        .filter((x) => x.available < x.item.quantity);
+      expect(outcome.ok, label).toBe(expectedShortfalls.length === 0);
 
       if (!outcome.ok) {
         failures++;
-        expect(outcome.failure.shortfalls.length, label).toBeGreaterThan(0);
-        for (const s of outcome.failure.shortfalls)
-          expect(s.available, label).toBeLessThan(s.requested);
+        // Same products, same order, same figures, and the reason the rules prescribe.
+        expect(outcome.failure.shortfalls, label).toEqual(
+          expectedShortfalls.map((x) => ({
+            productId: x.item.productId,
+            requested: x.item.quantity,
+            available: x.available,
+          })),
+        );
+        const onlyColdChain = expectedShortfalls.every(
+          (x) =>
+            productById.get(x.item.productId)!.requiresColdChain && x.network >= x.item.quantity,
+        );
+        expect(outcome.failure.reason, label).toBe(
+          onlyColdChain ? 'COLD_CHAIN_UNAVAILABLE' : 'INSUFFICIENT_STOCK',
+        );
         continue;
       }
       plans++;

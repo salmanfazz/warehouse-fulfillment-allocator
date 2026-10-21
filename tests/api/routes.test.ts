@@ -75,9 +75,11 @@ describe('GET /api/health', () => {
   );
 });
 
+// These call the handler directly and it ignores the path, so they prove the reply, not the routing.
+// Routing (bare /api, nested paths, trailing slash) is checked by curl against the dev server.
 describe('catch-all', () => {
   it.each(['/api/nope', '/api', '/api/v1/nope/deep'])(
-    'catch_all_get_%s_is_404_envelope',
+    'catch_all_handler_replies_404_envelope_for_get_%s',
     async (path) => {
       const res = await catchAll.GET(request(path), undefined);
       const body = await read(res);
@@ -88,7 +90,7 @@ describe('catch-all', () => {
   );
 
   it.each(['POST', 'PUT', 'PATCH', 'DELETE'] as const)(
-    'catch_all_%s_is_404_envelope',
+    'catch_all_handler_replies_404_envelope_for_%s',
     async (method) => {
       const res = await catchAll[method](request('/api/nope', method), undefined);
       expect(res.status).toBe(404);

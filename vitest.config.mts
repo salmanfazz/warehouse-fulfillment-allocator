@@ -18,7 +18,6 @@ const alias = { '@': fileURLToPath(new URL('./src', import.meta.url)) };
 export default defineConfig({
   resolve: { alias },
   test: {
-    passWithNoTests: true,
     projects: [
       {
         extends: true,
