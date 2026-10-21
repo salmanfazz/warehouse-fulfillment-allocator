@@ -50,3 +50,40 @@ export async function restoreBaseline(sql: Sql) {
     await tx`insert into stock ${tx([...BASELINE_STOCK].reverse())}`;
   });
 }
+
+// Locks the stock rows of the given products from a separate transaction, so a test can start
+// competing operations that all have to wait. Always call release(), in a finally block.
+export async function holdRowLocks(sql: Sql, productIds: string[]) {
+  let open!: () => void;
+  const gate = new Promise<void>((resolve) => (open = resolve));
+  let locked!: () => void;
+  const hasLocks = new Promise<void>((resolve) => (locked = resolve));
+  const holder = sql.begin(async (tx) => {
+    await tx`
+      select 1 from stock where product_id = any(${productIds})
+      order by warehouse_id, product_id for update`;
+    locked();
+    await gate;
+  });
+  await Promise.race([hasLocks, holder]);
+  return {
+    release: async () => {
+      open();
+      await holder;
+    },
+  };
+}
+
+// Waits until at least `count` sessions are blocked on a lock, or fails after the timeout.
+export async function waitUntilBlocked(sql: Sql, count: number, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const [row] = await sql<{ n: number }[]>`
+      select count(*)::int as n from pg_stat_activity
+      where datname = current_database() and wait_event_type = 'Lock'`;
+    if ((row?.n ?? 0) >= count) return;
+    if (Date.now() > deadline)
+      throw new Error(`Fewer than ${count} sessions became blocked within ${timeoutMs} ms`);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+}
