@@ -9,6 +9,7 @@ export function createSql(url: string, opts: { max?: number } = {}): Sql {
   const isLocal = LOCAL_HOSTS.has(new URL(url).hostname);
   return postgres(url, {
     prepare: false,
+    onnotice: () => {}, // Postgres NOTICE messages (such as "already exists, skipping") are not errors
     max: opts.max ?? DB.poolMax,
     connect_timeout: DB.connectTimeoutSeconds,
     ssl: isLocal ? false : 'require',

@@ -1,5 +1,6 @@
 import { createSql } from '@/db/client';
 import { migrate } from '@/db/migrate';
+import { seed } from '@/db/seed';
 import { assertSafeTestDatabase, ensureRoles } from '../support/test-db';
 
 // Rebuilds the test database from nothing so every run starts the same way.
@@ -8,7 +9,11 @@ export default async function setup() {
   const url = assertSafeTestDatabase(process.env.TEST_DATABASE_URL, process.env.DATABASE_URL);
   const sql = createSql(url, { max: 1 });
   try {
-    await sql.unsafe('drop schema public cascade; create schema public;').simple();
+    await sql
+      .unsafe(
+        'set client_min_messages = warning; drop schema public cascade; create schema public;',
+      )
+      .simple();
     await ensureRoles(sql);
 
     // Make plain Postgres behave like Supabase: the two public roles can use the schema and
@@ -31,6 +36,7 @@ export default async function setup() {
     }
 
     await migrate(sql);
+    await seed(sql);
   } finally {
     await sql.end();
   }
