@@ -2,22 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as catchAll from '@/app/api/[[...path]]/route';
 import * as health from '@/app/api/health/route';
 import { getSql } from '@/db/client';
+import { readEnvelope } from './helpers';
 
 vi.mock('@/db/client', () => ({ getSql: vi.fn() }));
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-
-type Envelope = { guid: string; code: number; info: string; data: unknown };
-
-async function read(res: Response) {
-  const body = (await res.json()) as Envelope;
-  expect(Object.keys(body).sort()).toEqual(['code', 'data', 'guid', 'info']);
-  expect(body.code).toBe(res.status);
-  expect(body.guid).toMatch(UUID);
-  expect(res.headers.get('x-request-id')).toBe(body.guid);
-  expect(res.headers.get('content-type')).toContain('application/json');
-  return body;
-}
+const read = async (res: Response) => (await readEnvelope(res)).body;
 
 const request = (path: string, method = 'GET') =>
   new Request(`http://localhost${path}`, { method });

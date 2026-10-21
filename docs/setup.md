@@ -157,7 +157,7 @@ curl -s -X POST "$BASE/api/v1/orders" \
   -w "\nHTTP %{http_code}\n"
 ```
 
-Expected status: 400. `data` is `{ "reason": "VALIDATION_ERROR", "errors": [{ "field": "items[0].quantity", "message": "quantity must be a whole number" }, { "field": "orderAt", "message": "orderAt is not a known field" }] }`. Every problem is listed. Unknown fields are rejected so a typo cannot silently change the order.
+Expected status: 400. `data` is `{ "reason": "VALIDATION_ERROR", "errors": [{ "field": "items[0].quantity", "message": "quantity must be a whole number" }, { "field": "orderAt", "message": "orderAt is not a known field" }] }`. Every problem is listed. Unknown fields are rejected so a typo cannot silently change the order (at most five are named). A `productId` is a code of up to 32 letters, digits, `-` or `_`; an unknown code is a 422, but a code with other characters is a 400.
 
 ### Reset the demo
 

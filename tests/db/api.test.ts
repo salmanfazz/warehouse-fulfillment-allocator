@@ -209,6 +209,74 @@ describe('the API end to end', () => {
   });
 });
 
+describe('what the schema accepts, Postgres accepts too', () => {
+  it('a_nul_byte_in_a_product_id_is_a_400_not_a_500_and_changes_nothing', async () => {
+    const body = JSON.stringify({ items: [{ productId: 'P\u0000', quantity: 1 }], orderedAt: AT });
+    for (const [mod, path] of [
+      [preview, '/api/v1/orders/preview'],
+      [orders, '/api/v1/orders'],
+    ] as const) {
+      const res = await post(mod, path, body);
+      const { body: envelope } = await readEnvelope(res);
+      expect(res.status, path).toBe(400);
+      expect((envelope.data as { errors: { field: string }[] }).errors[0]!.field).toBe(
+        'items[0].productId',
+      );
+    }
+    expect(await orderCount()).toBe(0);
+  });
+
+  it('no_request_the_schema_accepts_gives_a_server_error', async () => {
+    // seeded, so a failure can be reproduced from its number
+    let state = 777;
+    const next = () => {
+      state = (state + 0x6d2b79f5) | 0;
+      let t = Math.imul(state ^ (state >>> 15), 1 | state);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const pick = <T>(list: T[]) => list[Math.floor(next() * list.length)]!;
+    const ids = [
+      'P001',
+      'P002',
+      'P003',
+      'P004',
+      'P005',
+      'P999',
+      'p001',
+      'P 001',
+      'P\u0000',
+      'P\u0001',
+      "P'; drop table stock; --",
+      'P\\',
+      'P%00',
+      'ü',
+      'P😀',
+      '\ud800',
+      '',
+      'a'.repeat(40),
+      'P-1_x',
+    ];
+    const statuses = new Map<number, number>();
+    for (let i = 0; i < 150; i++) {
+      const items = Array.from({ length: 1 + Math.floor(next() * 3) }, () => ({
+        productId: pick(ids),
+        quantity: pick([1, 3, 50, 10000]),
+      }));
+      const res = await post(
+        preview,
+        '/api/v1/orders/preview',
+        JSON.stringify({ items, orderedAt: AT }),
+      );
+      await readEnvelope(res);
+      statuses.set(res.status, (statuses.get(res.status) ?? 0) + 1);
+      expect([200, 400, 422], `case ${i} ${JSON.stringify(items)}`).toContain(res.status);
+    }
+    expect(statuses.get(400)).toBeGreaterThan(10); // the generator reaches rejected input...
+    expect((statuses.get(200) ?? 0) + (statuses.get(422) ?? 0)).toBeGreaterThan(10); // ...and accepted input
+  });
+});
+
 describe('probes against the real database', () => {
   it('health_is_200', async () => {
     const res = await callRoute(health, 'GET', '/api/health');

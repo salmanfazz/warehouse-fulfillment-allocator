@@ -68,4 +68,11 @@ export const HTTP = {
   maxItems: 5,
   maxQuantity: 10000,
   maxProductIdLength: 32,
+  // Product ids are plain codes such as P001. Other characters are refused so that control
+  // characters (Postgres rejects a NUL byte in text) never reach the database or an error message.
+  productIdPattern: /^[A-Za-z0-9_-]+$/,
+  // Unknown request fields are named in the error, but only this many, each cut to this length,
+  // so a hostile request cannot make the response much bigger than itself.
+  maxUnknownFieldsListed: 5,
+  maxEchoedNameLength: 32,
 };

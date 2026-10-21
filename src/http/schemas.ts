@@ -13,9 +13,10 @@ const itemSchema = z.strictObject({
   productId: z
     .string({ error: 'productId must be text' })
     .min(1, 'productId must not be empty')
-    .max(
-      HTTP.maxProductIdLength,
-      `productId must be at most ${HTTP.maxProductIdLength} characters`,
+    .max(HTTP.maxProductIdLength, `productId must be at most ${HTTP.maxProductIdLength} characters`)
+    .refine(
+      (id) => id === '' || HTTP.productIdPattern.test(id), // an empty id already has its own message
+      'productId may only contain letters, digits, - and _',
     ),
   quantity: z
     .number({ error: 'quantity must be a number' })
@@ -32,7 +33,8 @@ const orderSchema = z.strictObject({
     .superRefine((items, ctx) => {
       const seen = new Set<string>();
       items.forEach((item, index) => {
-        if (typeof item?.productId !== 'string') return;
+        // an id that already failed its own rules is not also reported as repeated
+        if (!isPlainProductId(item?.productId)) return;
         if (seen.has(item.productId)) {
           ctx.addIssue({
             code: 'custom',
@@ -51,6 +53,18 @@ const orderSchema = z.strictObject({
     .optional(),
 });
 
+function isPlainProductId(id: unknown): id is string {
+  return (
+    typeof id === 'string' &&
+    id.length > 0 &&
+    id.length <= HTTP.maxProductIdLength &&
+    HTTP.productIdPattern.test(id)
+  );
+}
+
+const shorten = (name: string) =>
+  name.length > HTTP.maxEchoedNameLength ? `${name.slice(0, HTTP.maxEchoedNameLength)}…` : name;
+
 // ['items', 0, 'quantity'] -> items[0].quantity; a problem with the body as a whole -> body
 export function fieldName(path: PropertyKey[]): string {
   if (path.length === 0) return 'body';
@@ -68,10 +82,14 @@ export function fieldName(path: PropertyKey[]): string {
 function toFieldErrors(issues: z.core.$ZodIssue[]): FieldError[] {
   return issues.flatMap((issue): FieldError[] => {
     if (issue.code === 'unrecognized_keys') {
-      return issue.keys.map((key) => ({
-        field: fieldName([...issue.path, key]),
-        message: `${key} is not a known field`,
+      const listed = issue.keys.slice(0, HTTP.maxUnknownFieldsListed).map((key) => ({
+        field: fieldName([...issue.path, shorten(key)]),
+        message: `${shorten(key)} is not a known field`,
       }));
+      const more = issue.keys.length - listed.length;
+      return more > 0
+        ? [...listed, { field: 'body', message: `and ${more} more unknown fields` }]
+        : listed;
     }
     return [{ field: fieldName(issue.path), message: issue.message }];
   });

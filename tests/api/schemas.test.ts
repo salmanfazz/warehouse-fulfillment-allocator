@@ -105,6 +105,55 @@ describe('parseOrderRequest', () => {
     expect(parseOrderRequest({ items: [item('X'.repeat(32))] }).items).toHaveLength(1);
   });
 
+  it('product_id_may_only_contain_plain_characters', () => {
+    const message = 'productId may only contain letters, digits, - and _';
+    for (const bad of [
+      'P\u0000',
+      'P 1',
+      'P/1',
+      'P;1',
+      "P'1",
+      'P"1',
+      'P\\1',
+      'ü',
+      'P😀',
+      'P\n1',
+      '%00',
+      '<b>',
+      'P.1',
+    ]) {
+      expect(errorsOf({ items: [item(bad)] }), JSON.stringify(bad)).toEqual([
+        { field: 'items[0].productId', message },
+      ]);
+    }
+    for (const good of ['P001', 'p_1-2', 'A', '9', 'x'.repeat(32)]) {
+      expect(parseOrderRequest({ items: [item(good)] }).items[0]!.productId, good).toBe(good);
+    }
+  });
+
+  it('an_empty_product_id_gets_one_message_not_two', () => {
+    expect(errorsOf({ items: [item('')] })).toEqual([
+      { field: 'items[0].productId', message: 'productId must not be empty' },
+    ]);
+  });
+
+  it('an_invalid_id_that_is_repeated_is_not_also_reported_as_repeated', () => {
+    const long = 'Z'.repeat(200);
+    const errors = errorsOf({ items: [item(long), item(long)] });
+    expect(errors.some((e) => e.message.includes('is repeated'))).toBe(false);
+    expect(errors.every((e) => e.message.length < 100)).toBe(true);
+  });
+
+  it('unknown_fields_are_capped_and_their_names_truncated', () => {
+    const many: Record<string, unknown> = { items: [item()] };
+    for (let i = 0; i < 50000; i++) many[`unknown${i}`] = 1;
+    const errors = errorsOf(many);
+    expect(errors).toHaveLength(6); // five listed plus one summary
+    expect(errors[5]).toEqual({ field: 'body', message: 'and 49995 more unknown fields' });
+    const huge = errorsOf({ items: [item()], ['k'.repeat(1_000_000)]: 1 });
+    expect(JSON.stringify(huge).length).toBeLessThan(300);
+  });
+
   it('unknown_fields_at_both_levels_are_listed_by_name', () => {
     const body = { items: [{ productId: 'P001', quantity: 1, extra: true }], orderAt: 'x' };
     expect(errorsOf(body)).toEqual([
