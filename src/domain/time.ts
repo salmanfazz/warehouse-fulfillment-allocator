@@ -47,7 +47,12 @@ export function parseOrderedAt(iso: string): number {
   date.setUTCFullYear(year, month - 1, day);
   date.setUTCHours(hour, minute, second, 0);
   const offset = (sign === '-' ? -1 : 1) * (offsetHours * 60 + offsetMinutes);
-  return date.getTime() - offset * 60 * 1000;
+  const ms = date.getTime() - offset * 60 * 1000;
+  // The WIB time we report back must still have a four-digit year (0001 to 9999).
+  const wibYear = wibClock(ms).getUTCFullYear();
+  if (wibYear < 1 || wibYear > 9999)
+    throw new RangeError('orderedAt is out of the supported range');
+  return ms;
 }
 
 export function isValidOrderedAt(iso: string): boolean {

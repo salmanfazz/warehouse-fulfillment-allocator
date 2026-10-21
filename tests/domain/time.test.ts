@@ -155,4 +155,46 @@ describe('orderedAt validation', () => {
       expect(isValidOrderedAt(iso), iso).toBe(parses);
     }
   });
+
+  // The WIB time that planOrder reports must itself be a valid orderedAt (four-digit year,
+  // 0001 to 9999), however extreme the offset on the way in.
+  it('rejects_times_whose_wib_year_falls_outside_0001_to_9999', () => {
+    for (const iso of [
+      '0000-01-01T00:00:00Z',
+      '0001-01-01T00:00:00+23:59', // the instant is in year 0000
+      '9999-12-31T23:59:59-23:59',
+      '9999-12-31T17:00:00Z', // 00:00 WIB on 1 January 10000
+    ]) {
+      expect(() => parseOrderedAt(iso), iso).toThrow(RangeError);
+      expect(isValidOrderedAt(iso), iso).toBe(false);
+    }
+  });
+
+  it('accepts_the_extreme_times_that_still_have_a_four_digit_wib_year', () => {
+    for (const iso of [
+      '0001-01-01T00:00:00+07:00',
+      '9999-12-31T16:59:59Z',
+      '9999-12-31T23:59:59+07:00',
+    ]) {
+      expect(isValidOrderedAt(iso), iso).toBe(true);
+    }
+  });
+
+  it('every_accepted_input_formats_to_a_valid_ordered_at', () => {
+    const inputs = [
+      '0001-01-01T00:00:00+07:00',
+      '0000-12-31T23:59:59-23:59',
+      '0001-01-01T07:00:00+14:00',
+      '9999-12-31T16:59:59Z',
+      '9999-12-31T23:59:59+07:00',
+      '2026-12-31T23:59:59-23:59',
+      '2026-01-01T00:00:00+23:59',
+      '2028-02-29T00:00:00Z',
+    ];
+    for (const iso of inputs) {
+      const formatted = formatWib(parseOrderedAt(iso));
+      expect(isValidOrderedAt(formatted), `${iso} -> ${formatted}`).toBe(true);
+      expect(parseOrderedAt(formatted), iso).toBe(Math.floor(parseOrderedAt(iso) / 1000) * 1000);
+    }
+  });
 });
