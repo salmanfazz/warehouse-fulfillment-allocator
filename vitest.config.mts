@@ -28,7 +28,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'unit',
-          include: ['tests/{api,support,domain}/**/*.test.ts', 'tests/db/**/*.unit.test.ts'],
+          include: ['tests/{api,support,domain,ui}/**/*.test.ts', 'tests/db/**/*.unit.test.ts'],
         },
       },
       {
