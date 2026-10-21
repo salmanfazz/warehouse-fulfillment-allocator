@@ -1,7 +1,15 @@
 import type { JSONValue, Sql, TransactionSql } from 'postgres';
 import { DB } from '@/config';
 import { planOrder } from '@/domain/plan';
-import type { Failure, OrderInput, OrderPlan, PlanOutcome, StockRow } from '@/domain/types';
+import type {
+  Failure,
+  OrderInput,
+  OrderItem,
+  OrderPlan,
+  PlanOutcome,
+  StockRow,
+} from '@/domain/types';
+import { formatWib } from '@/domain/time';
 import { toStockRow } from './mappers';
 import { getReference } from './reference';
 
@@ -98,4 +106,44 @@ async function subtractStock(run: Runner, order: PlacedOrder): Promise<void> {
   if (updated.count !== lines.length) {
     throw new Error(`Expected to update ${lines.length} stock rows, updated ${updated.count}`);
   }
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// The stored result of one order, or null. A string that is not a uuid is simply "not found"
+// (Postgres would raise an error for it).
+export async function getOrder(sql: Sql, id: string): Promise<PlacedOrder | null> {
+  if (!UUID.test(id)) return null;
+  const [row] = await sql`select plan from orders where id = ${id}`;
+  return row ? (row.plan as PlacedOrder) : null;
+}
+
+export type OrderSummary = {
+  orderId: string;
+  createdAt: string; // WIB, when the order was placed
+  orderedAt: string; // WIB, the time the order was for
+  items: OrderItem[];
+  warehouseIds: string[];
+  totalMinutes: number;
+  totalCost: number;
+};
+
+// The most recent orders, newest first; orders created in the same instant come back by id.
+export async function listOrders(sql: Sql): Promise<OrderSummary[]> {
+  const rows = await sql`
+    select id, created_at, items, plan from orders
+    order by created_at desc, id desc
+    limit ${DB.recentOrdersLimit}`;
+  return rows.map((row) => {
+    const plan = row.plan as PlacedOrder;
+    return {
+      orderId: row.id as string,
+      createdAt: formatWib((row.created_at as Date).getTime()),
+      orderedAt: plan.orderedAt,
+      items: row.items as OrderItem[],
+      warehouseIds: plan.shipments.map((s) => s.warehouseId),
+      totalMinutes: plan.totalMinutes,
+      totalCost: plan.totalCost,
+    };
+  });
 }
