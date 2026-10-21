@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fail, ok, type Reply } from '@/http/envelope';
 import {
   NotFoundError,
+  ServiceUnavailableError,
   UnauthorizedError,
   UnfulfillableError,
   UnknownProductError,
@@ -145,5 +146,20 @@ describe('envelope', () => {
       throw Object.assign(new Error('duplicate key'), { code: '23505' });
     });
     expect(res.status).toBe(500);
+  });
+
+  it('service_unavailable_is_503_and_logs_the_cause_not_the_body', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { res, body } = await run(() => {
+      throw new ServiceUnavailableError(new Error('DATABASE_URL is not set'));
+    });
+    expect(res.status).toBe(503);
+    expectEnvelope(res, body);
+    expect(body.info).toBe('Database unavailable');
+    expect(body.data).toBeNull();
+    expect(JSON.stringify(body)).not.toContain('DATABASE_URL');
+    const line = JSON.parse(String(log.mock.calls[0]?.[0])) as Record<string, unknown>;
+    expect(line.guid).toBe(body.guid);
+    expect(line.message).toBe('DATABASE_URL is not set');
   });
 });

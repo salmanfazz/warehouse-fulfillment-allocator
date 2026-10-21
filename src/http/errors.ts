@@ -7,8 +7,9 @@ export class ApiError extends Error {
     readonly status: number,
     readonly info: string,
     readonly data: unknown = null,
+    cause?: unknown,
   ) {
-    super(info);
+    super(info, { cause });
   }
 }
 
@@ -44,5 +45,12 @@ export class NotFoundError extends ApiError {
 export class UnauthorizedError extends ApiError {
   constructor() {
     super(401, 'Unauthorized');
+  }
+}
+
+// The database could not answer. The cause is logged with the guid, never sent to the client.
+export class ServiceUnavailableError extends ApiError {
+  constructor(cause: unknown) {
+    super(503, 'Database unavailable', null, cause);
   }
 }

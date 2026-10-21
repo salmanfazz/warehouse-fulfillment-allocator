@@ -28,7 +28,10 @@ function logError(guid: string, err: unknown) {
 }
 
 function errorToReply(guid: string, err: unknown): Reply {
-  if (err instanceof ApiError) return fail(err.status, err.info, err.data);
+  if (err instanceof ApiError) {
+    if (err.status >= 500) logError(guid, err.cause ?? err);
+    return fail(err.status, err.info, err.data);
+  }
   logError(guid, err);
   if (isDatabaseDown(err)) return fail(503, 'Service temporarily unavailable');
   return fail(500, 'Something went wrong');
