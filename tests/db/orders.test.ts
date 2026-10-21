@@ -3,7 +3,7 @@ import { clearReferenceCache } from '@/db/reference';
 import { placeOrder, previewOrder, readStock } from '@/db/orders';
 import { parseOrderedAt } from '@/domain/time';
 import type { OrderInput } from '@/domain/types';
-import { restoreBaseline, sqlState, testSql } from './helpers';
+import { holdRowLocks, restoreBaseline, sqlState, testSql, waitUntilBlocked } from './helpers';
 
 const sql = testSql();
 afterAll(() => sql.end());
@@ -176,6 +176,29 @@ describe('placeOrder', () => {
       await sqlState(sql`update stock set quantity = quantity - 1000 where warehouse_id = 'W01'`),
     ).toBe('23514');
     expect(await allStock()).toEqual(before);
+  });
+});
+
+describe('created_at', () => {
+  it('created_at_is_assigned_when_the_order_is_stored_not_when_its_transaction_started', async () => {
+    const holder = await holdRowLocks(sql, ['P001']);
+    let waiting: ReturnType<typeof placeOrder>;
+    let releasedAt: number;
+    try {
+      waiting = placeOrder(sql, {
+        items: [{ productId: 'P001', quantity: 1 }],
+        orderedAt: OFF_PEAK,
+      });
+      await waitUntilBlocked(sql, 1);
+      await new Promise((resolve) => setTimeout(resolve, 150)); // the order has now waited a while
+    } finally {
+      releasedAt = Date.now();
+      await holder.release();
+    }
+    expect((await waiting).ok).toBe(true);
+    const [row] = await sql<{ created_at: Date }[]>`select created_at from orders`;
+    // now() would give the moment the transaction began, before the wait
+    expect(row!.created_at.getTime()).toBeGreaterThanOrEqual(releasedAt - 5);
   });
 });
 

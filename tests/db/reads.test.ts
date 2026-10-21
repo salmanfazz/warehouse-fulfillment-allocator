@@ -32,6 +32,37 @@ describe('getOrder', () => {
     expect(await getOrder(sql, order.orderId)).toEqual(JSON.parse(JSON.stringify(order)));
   });
 
+  it('get_order_reads_back_exactly_what_place_order_returned_including_key_order', async () => {
+    const order = await place(hepB45);
+    const stored = await getOrder(sql, order.orderId);
+    // jsonb keeps keys sorted by length, not in the order they were written; the read side puts them back
+    expect(JSON.stringify(stored)).toBe(JSON.stringify(order));
+    expect(Object.keys(stored!)).toEqual([
+      'orderId',
+      'orderedAt',
+      'shipments',
+      'totalMinutes',
+      'totalCost',
+      'reasons',
+      'alternatives',
+    ]);
+    expect(Object.keys(stored!.shipments[0]!)).toEqual([
+      'warehouseId',
+      'city',
+      'distanceKm',
+      'vehicle',
+      'items',
+      'minutes',
+      'cost',
+    ]);
+    expect(Object.keys(stored!.shipments[0]!.items[0]!)).toEqual(['productId', 'quantity']);
+    expect(Object.keys(stored!.alternatives[0]!)).toEqual([
+      'warehouseIds',
+      'totalMinutes',
+      'totalCost',
+    ]);
+  });
+
   it('get_order_accepts_an_upper_case_id', async () => {
     const order = await place(hepB45);
     expect((await getOrder(sql, order.orderId.toUpperCase()))?.orderId).toBe(order.orderId);
@@ -67,6 +98,21 @@ describe('listOrders', () => {
     const list = await listOrders(sql);
     expect(list).toHaveLength(20);
     expect(list.map((o) => o.orderId)).toEqual(ids.slice(2).reverse()); // the two oldest are left out
+  });
+
+  it('summary_keys_and_item_keys_are_in_the_documented_order', async () => {
+    await place(hepB45);
+    const [summary] = await listOrders(sql);
+    expect(Object.keys(summary!)).toEqual([
+      'orderId',
+      'createdAt',
+      'orderedAt',
+      'items',
+      'warehouseIds',
+      'totalMinutes',
+      'totalCost',
+    ]);
+    expect(Object.keys(summary!.items[0]!)).toEqual(['productId', 'quantity']);
   });
 
   it('summary_has_exactly_the_documented_keys', async () => {

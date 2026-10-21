@@ -72,9 +72,9 @@ export async function placeOrder(sql: Sql, input: OrderInput): Promise<PlaceOutc
       const placed: PlacedOrder = { orderId: crypto.randomUUID(), ...outcome.plan };
       await subtractStock(tx, placed);
       await tx`
-        insert into orders (id, ordered_at, items, plan)
+        insert into orders (id, ordered_at, items, plan, created_at)
         values (${placed.orderId}, ${placed.orderedAt}, ${tx.json(input.items as unknown as JSONValue)},
-                ${tx.json(placed as unknown as JSONValue)})`;
+                ${tx.json(placed as unknown as JSONValue)}, clock_timestamp())`; // stamped now, after any lock wait
       return placed;
     });
     return { ok: true, order };
@@ -115,7 +115,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function getOrder(sql: Sql, id: string): Promise<PlacedOrder | null> {
   if (!UUID.test(id)) return null;
   const [row] = await sql`select plan from orders where id = ${id}`;
-  return row ? (row.plan as PlacedOrder) : null;
+  return row ? toPlacedOrder(row.plan as PlacedOrder) : null;
 }
 
 export type OrderSummary = {
@@ -135,15 +135,47 @@ export async function listOrders(sql: Sql): Promise<OrderSummary[]> {
     order by created_at desc, id desc
     limit ${DB.recentOrdersLimit}`;
   return rows.map((row) => {
+    // Rows written by placeOrder itself, so the casts need no checking. Only fields that are
+    // read here, so the key order of the stored plan does not matter; items are repaired below.
     const plan = row.plan as PlacedOrder;
     return {
       orderId: row.id as string,
       createdAt: formatWib((row.created_at as Date).getTime()),
       orderedAt: plan.orderedAt,
-      items: row.items as OrderItem[],
+      items: orderedItems(row.items as OrderItem[]),
       warehouseIds: plan.shipments.map((s) => s.warehouseId),
       totalMinutes: plan.totalMinutes,
       totalCost: plan.totalCost,
     };
   });
+}
+
+// jsonb stores object keys sorted by length, not in the order they were written. These rebuild
+// a stored order with its keys in the documented order, so GET /orders/{id} reads exactly like
+// the response that placed the order.
+const orderedItems = (items: OrderItem[]): OrderItem[] =>
+  items.map(({ productId, quantity }) => ({ productId, quantity }));
+
+function toPlacedOrder(p: PlacedOrder): PlacedOrder {
+  return {
+    orderId: p.orderId,
+    orderedAt: p.orderedAt,
+    shipments: p.shipments.map((s) => ({
+      warehouseId: s.warehouseId,
+      city: s.city,
+      distanceKm: s.distanceKm,
+      vehicle: s.vehicle,
+      items: orderedItems(s.items),
+      minutes: s.minutes,
+      cost: s.cost,
+    })),
+    totalMinutes: p.totalMinutes,
+    totalCost: p.totalCost,
+    reasons: p.reasons,
+    alternatives: p.alternatives.map((a) => ({
+      warehouseIds: a.warehouseIds,
+      totalMinutes: a.totalMinutes,
+      totalCost: a.totalCost,
+    })),
+  };
 }
