@@ -1,6 +1,6 @@
-export type FieldError = { field: string; message: string };
-export type Shortfall = { productId: string; requested: number; available: number };
+import type { Failure } from '@/domain/types';
 
+export type FieldError = { field: string; message: string };
 // Thrown by handlers; withEnvelope turns it into the matching enveloped response.
 export class ApiError extends Error {
   constructor(
@@ -19,20 +19,11 @@ export class ValidationError extends ApiError {
   }
 }
 
-export class UnknownProductError extends ApiError {
-  constructor(shortfalls: Shortfall[]) {
-    const ids = shortfalls.map((s) => s.productId).join(', ');
-    super(422, `Unknown product: ${ids}`, { reason: 'UNKNOWN_PRODUCT', shortfalls });
-  }
-}
-
-export class UnfulfillableError extends ApiError {
-  constructor(
-    reason: 'INSUFFICIENT_STOCK' | 'COLD_CHAIN_UNAVAILABLE',
-    info: string,
-    shortfalls: Shortfall[],
-  ) {
-    super(422, info, { reason, shortfalls });
+// A well-formed order that cannot be fulfilled (unknown product, not enough stock, stock that
+// cannot be shipped cold). The domain has already worded it; this only carries it to a 422.
+export class RejectedOrderError extends ApiError {
+  constructor(failure: Failure) {
+    super(422, failure.info, { reason: failure.reason, shortfalls: failure.shortfalls });
   }
 }
 

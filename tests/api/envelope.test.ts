@@ -2,12 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fail, ok, type Reply } from '@/http/envelope';
 import {
   NotFoundError,
+  RejectedOrderError,
   ServiceUnavailableError,
   UnauthorizedError,
-  UnfulfillableError,
-  UnknownProductError,
   ValidationError,
 } from '@/http/errors';
+import type { Failure } from '@/domain/types';
 import { withEnvelope } from '@/http/withEnvelope';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -71,26 +71,33 @@ describe('envelope', () => {
     expect(body.data).toEqual({ reason: 'VALIDATION_ERROR', errors });
   });
 
-  it('unknown_product_is_422_with_reason_and_shortfalls', async () => {
-    const shortfalls = [{ productId: 'P999', requested: 3, available: 0 }];
-    const { res, body } = await run(() => {
-      throw new UnknownProductError(shortfalls);
-    });
-    expect(res.status).toBe(422);
-    expectEnvelope(res, body);
-    expect(body.info).toBe('Unknown product: P999');
-    expect(body.data).toEqual({ reason: 'UNKNOWN_PRODUCT', shortfalls });
-  });
-
-  it('unfulfillable_is_422_with_reason_and_shortfalls', async () => {
-    const shortfalls = [{ productId: 'P002', requested: 120, available: 108 }];
-    const { res, body } = await run(() => {
-      throw new UnfulfillableError('COLD_CHAIN_UNAVAILABLE', 'Only 108 can be shipped', shortfalls);
-    });
-    expect(res.status).toBe(422);
-    expectEnvelope(res, body);
-    expect(body.info).toBe('Only 108 can be shipped');
-    expect(body.data).toEqual({ reason: 'COLD_CHAIN_UNAVAILABLE', shortfalls });
+  it('rejected_order_is_422_with_the_domains_info_reason_and_shortfalls', async () => {
+    const failures: Failure[] = [
+      {
+        reason: 'UNKNOWN_PRODUCT',
+        info: 'Unknown product: P999',
+        shortfalls: [{ productId: 'P999', requested: 3, available: 0 }],
+      },
+      {
+        reason: 'INSUFFICIENT_STOCK',
+        info: 'Not enough stock for Surgical Gloves (Box of 100): requested 5000, available 1100',
+        shortfalls: [{ productId: 'P001', requested: 5000, available: 1100 }],
+      },
+      {
+        reason: 'COLD_CHAIN_UNAVAILABLE',
+        info: 'Only 108 of 158 units of Vaccine - Hepatitis B (10-dose vial) can be shipped with cold chain',
+        shortfalls: [{ productId: 'P002', requested: 120, available: 108 }],
+      },
+    ];
+    for (const failure of failures) {
+      const { res, body } = await run(() => {
+        throw new RejectedOrderError(failure);
+      });
+      expect(res.status, failure.reason).toBe(422);
+      expectEnvelope(res, body);
+      expect(body.info).toBe(failure.info);
+      expect(body.data).toEqual({ reason: failure.reason, shortfalls: failure.shortfalls });
+    }
   });
 
   it('not_found_is_404_data_null', async () => {
