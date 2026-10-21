@@ -231,7 +231,10 @@ export default function Home() {
             orderedAt={orderedAt}
             busy={busy}
             onRowChange={changeRow}
-            onAddRow={() => setRows((current) => [...current, newRow(nextRowId.current++)])}
+            onAddRow={() => {
+              const id = nextRowId.current++; // outside the updater: updaters must be pure (Strict Mode runs them twice)
+              setRows((current) => [...current, newRow(id)]);
+            }}
             onRemoveRow={(id) => {
               setRows((current) => current.filter((r) => r.id !== id));
               setRowErrors((current) => without(current, id));

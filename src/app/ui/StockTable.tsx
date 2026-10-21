@@ -23,7 +23,7 @@ export function StockTable({
   onRefresh,
 }: Props) {
   return (
-    <section className="section" aria-labelledby="stock-heading">
+    <section className="section stock-section" aria-labelledby="stock-heading">
       <div className="section-head">
         <h2 id="stock-heading">Stock</h2>
         <button type="button" className="btn" disabled={busy} onClick={onRefresh}>
@@ -99,6 +99,7 @@ export function StockTable({
                             .trim()}
                         >
                           {formatNumber(quantity)}
+                          {change !== undefined && ' '}
                           {change !== undefined && (
                             <span className={`delta ${change < 0 ? 'down' : 'up'}`}>
                               ({formatChange(change)})
