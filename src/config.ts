@@ -61,3 +61,11 @@ export const TIME = {
   // Asia/Jakarta (WIB) is UTC+7 all year; there is no daylight saving.
   wibOffsetHours: 7,
 };
+
+// Request limits. Items per order and quantity per item come from the project rules; the product
+// id length is a plain limit that keeps odd input out of error messages.
+export const HTTP = {
+  maxItems: 5,
+  maxQuantity: 10000,
+  maxProductIdLength: 32,
+};
