@@ -1,5 +1,10 @@
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
+
+// Vitest does not read .env.local on its own; the database tests need TEST_DATABASE_URL.
+// Variables already set in the shell win.
+if (existsSync('.env.local')) process.loadEnvFile('.env.local');
 
 const alias = { '@': fileURLToPath(new URL('./src', import.meta.url)) };
 
@@ -14,7 +19,12 @@ export default defineConfig({
       },
       {
         extends: true,
-        test: { name: 'db', include: ['tests/db/**/*.test.ts'], fileParallelism: false },
+        test: {
+          name: 'db',
+          include: ['tests/db/**/*.test.ts'],
+          fileParallelism: false,
+          globalSetup: ['tests/db/global-setup.ts'],
+        },
       },
     ],
   },
