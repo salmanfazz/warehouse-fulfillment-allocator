@@ -197,7 +197,7 @@ describe('rankCandidates guards', () => {
 
   it('rank_candidates_rejects_a_missing_or_non_finite_eta', () => {
     const items = itemsOf({ P001: 10 });
-    const { W03: _omitted, ...missing } = etas;
+    const missing = Object.fromEntries(Object.entries(etas).filter(([id]) => id !== 'W03'));
     expect(() => rankCandidates(items, snapshot, missing)).toThrow(/W03/);
     for (const bad of [Number.NaN, Number.POSITIVE_INFINITY]) {
       expect(() => rankCandidates(items, snapshot, { ...etas, W03: bad })).toThrow(/W03/);

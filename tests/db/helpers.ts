@@ -75,7 +75,8 @@ export async function holdRowLocks(sql: Sql, productIds: string[]) {
 }
 
 // Waits until at least `count` sessions are blocked on a lock, or fails after the timeout.
-export async function waitUntilBlocked(sql: Sql, count: number, timeoutMs = 5000) {
+// The deadline stays below the 5 s lock timeout, so the first waiter cannot give up while the poll still waits for the second.
+export async function waitUntilBlocked(sql: Sql, count: number, timeoutMs = 3000) {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     const [row] = await sql<{ n: number }[]>`
@@ -86,4 +87,29 @@ export async function waitUntilBlocked(sql: Sql, count: number, timeoutMs = 5000
       throw new Error(`Fewer than ${count} sessions became blocked within ${timeoutMs} ms`);
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
+}
+
+// Starts the operations one by one, each only after the previous one is blocked on the lock held
+// by a helper transaction, then releases the lock and returns how every operation ended. The
+// holder is released and every started operation is awaited even when waiting fails, so nothing
+// is left running or rejecting unobserved.
+export async function raceBehindLock<T>(
+  sql: Sql,
+  productIds: string[],
+  starters: (() => Promise<T>)[],
+): Promise<PromiseSettledResult<T>[]> {
+  const holder = await holdRowLocks(sql, productIds);
+  const started: Promise<T>[] = [];
+  try {
+    for (const [index, start] of starters.entries()) {
+      started.push(start());
+      await waitUntilBlocked(sql, index + 1);
+    }
+  } catch (error) {
+    await holder.release();
+    await Promise.allSettled(started);
+    throw error;
+  }
+  await holder.release();
+  return Promise.allSettled(started);
 }

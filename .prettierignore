@@ -5,3 +5,4 @@ tests/fixtures
 db/seeds
 reference
 docs
+.vitest

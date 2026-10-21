@@ -4,7 +4,7 @@ import { clearReferenceCache } from '@/db/reference';
 import { resetAll } from '@/db/reset';
 import { BASELINE_STOCK } from '@/db/seed-data';
 import type { OrderInput } from '@/domain/types';
-import { holdRowLocks, restoreBaseline, testSql, waitUntilBlocked } from './helpers';
+import { holdRowLocks, raceBehindLock, restoreBaseline, testSql } from './helpers';
 
 const sql = testSql();
 afterAll(() => sql.end());
@@ -45,18 +45,17 @@ const leaveHepB = (vials: number) =>
 describe('the last vials', () => {
   it('two_simultaneous_orders_for_the_last_vials_give_one_success_and_one_422', async () => {
     await leaveHepB(10);
-    const holder = await holdRowLocks(sql, ['P002']);
-    let first: Promise<PlaceOutcome>;
-    let second: Promise<PlaceOutcome>;
-    try {
-      first = placeOrder(sql, hepB(10));
-      await waitUntilBlocked(sql, 1);
-      second = placeOrder(sql, hepB(10));
-      await waitUntilBlocked(sql, 2); // both are waiting for the same rows
-    } finally {
-      await holder.release();
-    }
-    const { ok, failed } = split([await first, await second]);
+    const settled = await raceBehindLock(
+      sql,
+      ['P002'],
+      [() => placeOrder(sql, hepB(10)), () => placeOrder(sql, hepB(10))],
+    ); // both end up waiting for the same rows
+    const { ok, failed } = split(
+      settled.map((r) => {
+        if (r.status === 'rejected') throw r.reason;
+        return r.value;
+      }),
+    );
     expect(ok).toHaveLength(1);
     expect(failed).toHaveLength(1);
     expect(failed[0]!.failure.reason).toBe('COLD_CHAIN_UNAVAILABLE'); // W02 and W06 still hold 50 that cannot ship cold

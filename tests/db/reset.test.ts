@@ -4,7 +4,7 @@ import { clearReferenceCache } from '@/db/reference';
 import { resetAll } from '@/db/reset';
 import { BASELINE_STOCK } from '@/db/seed-data';
 import type { OrderInput } from '@/domain/types';
-import { holdRowLocks, restoreBaseline, testSql, waitUntilBlocked } from './helpers';
+import { raceBehindLock, restoreBaseline, testSql } from './helpers';
 
 const sql = testSql();
 afterAll(() => sql.end());
@@ -72,21 +72,19 @@ describe('resetAll', () => {
 
   it('reset_updates_rows_in_place_so_a_waiting_order_sees_the_restored_stock', async () => {
     await sql`update stock set quantity = 0 where product_id = 'P002'`; // all Hep B gone
-    const holder = await holdRowLocks(sql, ['P002']);
-    let reset: Promise<void>;
-    let waiting: ReturnType<typeof placeOrder>;
-    try {
-      reset = resetAll(sql);
-      await waitUntilBlocked(sql, 1); // reset is queued first...
-      waiting = placeOrder(sql, order('P002', 10));
-      await waitUntilBlocked(sql, 2); // ...and the order queues behind it
-    } finally {
-      await holder.release();
-    }
-    await reset;
-    const outcome = await waiting;
+    // reset queues first, and the order queues behind it
+    const [reset, waiting] = await raceBehindLock<unknown>(
+      sql,
+      ['P002'],
+      [() => resetAll(sql), () => placeOrder(sql, order('P002', 10))],
+    );
+    expect(reset!.status).toBe('fulfilled');
+    const outcome =
+      waiting!.status === 'fulfilled'
+        ? (waiting.value as Awaited<ReturnType<typeof placeOrder>>)
+        : null;
     // If reset had deleted and re-inserted the rows, the order would wake up to find none.
-    expect(outcome.ok).toBe(true);
+    expect(outcome?.ok).toBe(true);
     const [row] = await sql<
       { total: number }[]
     >`select sum(quantity)::int as total from stock where product_id = 'P002'`;
