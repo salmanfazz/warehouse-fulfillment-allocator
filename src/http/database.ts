@@ -1,5 +1,5 @@
 import { getSql } from '@/db/client';
-import { ok, type Reply } from './envelope';
+import { NO_STORE, ok, type Reply } from './envelope';
 import { ServiceUnavailableError } from './errors';
 
 // "Can the database answer?" Used by /api/health and by the cron keep-alive. Any failure,
@@ -10,5 +10,5 @@ export async function checkDatabase(): Promise<Reply> {
   } catch (err) {
     throw new ServiceUnavailableError(err);
   }
-  return ok({ status: 'ok' }, 'Database reachable', { headers: { 'Cache-Control': 'no-store' } });
+  return ok({ status: 'ok' }, 'Database reachable', { headers: NO_STORE });
 }

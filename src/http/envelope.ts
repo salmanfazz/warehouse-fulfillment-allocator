@@ -1,3 +1,6 @@
+// Live data (stock, orders) must never be served from a cache.
+export const NO_STORE = { 'Cache-Control': 'no-store' };
+
 export type Reply = {
   status: number;
   info: string;
