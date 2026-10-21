@@ -58,3 +58,135 @@ npm run db:seed
 npm run dev
 curl -i http://localhost:3000/api/health
 ```
+
+## Using the API
+
+Start the app (`npm run dev`) and set these in your shell. Use the port the dev server prints, and
+the same `CRON_SECRET` the server was started with (never paste the real secret into a document).
+
+```sh
+BASE=http://localhost:3000
+CRON_SECRET=<the value in your .env.local>
+```
+
+Every response, including every error, has the same four keys:
+
+```json
+{ "guid": "uuid, also in the X-Request-Id header", "code": 200, "info": "short message", "data": {} }
+```
+
+`code` always equals the HTTP status. The examples print the status after the body (`-w`), so you
+can see both. Times are in WIB (UTC+7); `orderedAt` is optional and defaults to now.
+
+### Health
+
+```sh
+curl -s "$BASE/api/health" -w "\nHTTP %{http_code}\n"
+```
+
+Expected status: 200. Data: `{ "status": "ok" }`. It answers 503 when the database cannot be reached.
+
+### Products
+
+```sh
+curl -s "$BASE/api/v1/products" -w "\nHTTP %{http_code}\n"
+```
+
+Expected status: 200. Data: `{ "products": [{ "id": "P001", "name": "...", "category": "...", "requiresColdChain": false }, ...] }`.
+
+### Warehouses with current stock
+
+```sh
+curl -s "$BASE/api/v1/warehouses" -w "\nHTTP %{http_code}\n"
+```
+
+Expected status: 200. Data: `{ "warehouses": [{ "id": "W01", "city": "Surabaya", "distanceKm": 5, ..., "stock": { "P001": 200, "P002": 0, ... } }, ...] }`. Every product is listed, with 0 where there is no stock.
+
+### Preview an order (changes nothing)
+
+```sh
+curl -s -X POST "$BASE/api/v1/orders/preview" \
+  -d '{"items":[{"productId":"P002","quantity":45}],"orderedAt":"2026-10-20T13:00:00+07:00"}' \
+  -w "\nHTTP %{http_code}\n"
+```
+
+Expected status: 200. Data: the plan (`orderedAt`, `shipments`, `totalMinutes`, `totalCost`, `reasons`, `alternatives`), without an `orderId`. Here 40 vials ship from W04 and 5 from W07.
+
+### Place an order (reserves the stock)
+
+```sh
+curl -s -i -X POST "$BASE/api/v1/orders" \
+  -d '{"items":[{"productId":"P002","quantity":45}],"orderedAt":"2026-10-20T13:00:00+07:00"}' \
+  -w "\nHTTP %{http_code}\n"
+```
+
+Expected status: 201. The `Location` header is `/api/v1/orders/<orderId>` and `data` is the plan plus `orderId`.
+
+### Read one order
+
+```sh
+ORDER_ID=$(curl -s "$BASE/api/v1/orders" | grep -o '"orderId":"[^"]*"' | head -1 | cut -d'"' -f4)
+curl -s "$BASE/api/v1/orders/$ORDER_ID" -w "\nHTTP %{http_code}\n"
+```
+
+Expected status: 200. Data: exactly what placing the order returned. An unknown or malformed id is 404.
+
+### List the last 20 orders
+
+```sh
+curl -s "$BASE/api/v1/orders" -w "\nHTTP %{http_code}\n"
+```
+
+Expected status: 200. Data: `{ "orders": [{ "orderId", "createdAt", "orderedAt", "items", "warehouseIds", "totalMinutes", "totalCost" }, ...] }`, newest first.
+
+### An order that cannot be fulfilled (422)
+
+```sh
+curl -s -X POST "$BASE/api/v1/orders" \
+  -d '{"items":[{"productId":"P002","quantity":500}]}' \
+  -w "\nHTTP %{http_code}\n"
+```
+
+Expected status: 422. `data` is `{ "reason": "INSUFFICIENT_STOCK" | "COLD_CHAIN_UNAVAILABLE" | "UNKNOWN_PRODUCT", "shortfalls": [...] }` and `info` says why in one sentence.
+
+### A request that is not valid (400)
+
+```sh
+curl -s -X POST "$BASE/api/v1/orders" \
+  -d '{"items":[{"productId":"P001","quantity":1.5}],"orderAt":"2026-10-20T13:00:00+07:00"}' \
+  -w "\nHTTP %{http_code}\n"
+```
+
+Expected status: 400. `data` is `{ "reason": "VALIDATION_ERROR", "errors": [{ "field": "items[0].quantity", "message": "quantity must be a whole number" }, { "field": "orderAt", "message": "orderAt is not a known field" }] }`. Every problem is listed. Unknown fields are rejected so a typo cannot silently change the order.
+
+### Reset the demo
+
+```sh
+curl -s -X POST "$BASE/api/v1/reset" -w "\nHTTP %{http_code}\n"
+```
+
+Expected status: 200. All orders are deleted and stock goes back to the starting amounts. This endpoint is public on purpose (the demo has no login).
+
+### Keep-alive (used by the daily cron)
+
+```sh
+curl -s "$BASE/api/cron/keep-alive" -H "Authorization: Bearer $CRON_SECRET" -w "\nHTTP %{http_code}\n"
+```
+
+Expected status: 200. Without the header, or with a wrong secret, it answers 401.
+
+### Wrong method (405)
+
+```sh
+curl -s -i "$BASE/api/v1/orders/preview" -w "\nHTTP %{http_code}\n"
+```
+
+Expected status: 405. The `Allow` header lists the methods that work (here `POST`). `OPTIONS` on any route answers 200 with the same `Allow` header.
+
+### Unknown route (404)
+
+```sh
+curl -s "$BASE/api/v1/nope" -w "\nHTTP %{http_code}\n"
+```
+
+Expected status: 404, with the same four keys as everything else.
