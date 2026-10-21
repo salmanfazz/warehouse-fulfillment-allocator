@@ -1,0 +1,17 @@
+CLAUDE.md
+.claude/
+notes/
+docs/superpowers/
+.env
+.env.local
+.vercel
+node_modules/
+.next/
+.env*
+!.env.example
+.DS_Store
+__pycache__/
+*.pyc
+next-env.d.ts
+*.tsbuildinfo
+coverage/

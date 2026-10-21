@@ -1,0 +1,170 @@
+{
+  "W01": {
+    "warehouseMedian": 33.0,
+    "count": 8,
+    "buckets": {
+      "peak": {
+        "n": 4,
+        "bucketMedian": 52.5,
+        "estimate": 46.0
+      },
+      "off_peak": {
+        "n": 2,
+        "bucketMedian": 16.5,
+        "estimate": 24.75
+      },
+      "weekend": {
+        "n": 2,
+        "bucketMedian": 11.0,
+        "estimate": 22.0
+      }
+    }
+  },
+  "W02": {
+    "warehouseMedian": 65,
+    "count": 7,
+    "buckets": {
+      "peak": {
+        "n": 4,
+        "bucketMedian": 75.0,
+        "estimate": 71.66666666666667
+      },
+      "off_peak": {
+        "n": 1,
+        "bucketMedian": 25,
+        "estimate": 51.666666666666664
+      },
+      "weekend": {
+        "n": 2,
+        "bucketMedian": 21.0,
+        "estimate": 43.0
+      }
+    }
+  },
+  "W03": {
+    "warehouseMedian": 45,
+    "count": 5,
+    "buckets": {
+      "peak": {
+        "n": 3,
+        "bucketMedian": 60,
+        "estimate": 54.0
+      },
+      "off_peak": {
+        "n": 1,
+        "bucketMedian": 40,
+        "estimate": 43.333333333333336
+      },
+      "weekend": {
+        "n": 1,
+        "bucketMedian": 35,
+        "estimate": 41.666666666666664
+      }
+    }
+  },
+  "W04": {
+    "warehouseMedian": 50,
+    "count": 5,
+    "buckets": {
+      "peak": {
+        "n": 2,
+        "bucketMedian": 77.5,
+        "estimate": 63.75
+      },
+      "off_peak": {
+        "n": 2,
+        "bucketMedian": 47.5,
+        "estimate": 48.75
+      },
+      "weekend": {
+        "n": 1,
+        "bucketMedian": 38,
+        "estimate": 46.0
+      }
+    }
+  },
+  "W05": {
+    "warehouseMedian": 165,
+    "count": 5,
+    "buckets": {
+      "peak": {
+        "n": 1,
+        "bucketMedian": 130,
+        "estimate": 153.33333333333334
+      },
+      "off_peak": {
+        "n": 2,
+        "bucketMedian": 145.0,
+        "estimate": 155.0
+      },
+      "weekend": {
+        "n": 2,
+        "bucketMedian": 180.0,
+        "estimate": 172.5
+      }
+    }
+  },
+  "W06": {
+    "warehouseMedian": 160.0,
+    "count": 4,
+    "buckets": {
+      "peak": {
+        "n": 1,
+        "bucketMedian": 140,
+        "estimate": 153.33333333333334
+      },
+      "off_peak": {
+        "n": 2,
+        "bucketMedian": 157.5,
+        "estimate": 158.75
+      },
+      "weekend": {
+        "n": 1,
+        "bucketMedian": 200,
+        "estimate": 173.33333333333334
+      }
+    }
+  },
+  "W07": {
+    "warehouseMedian": 67.5,
+    "count": 2,
+    "buckets": {
+      "peak": {
+        "n": 0,
+        "bucketMedian": null,
+        "estimate": 67.5
+      },
+      "off_peak": {
+        "n": 2,
+        "bucketMedian": 67.5,
+        "estimate": 67.5
+      },
+      "weekend": {
+        "n": 0,
+        "bucketMedian": null,
+        "estimate": 67.5
+      }
+    }
+  },
+  "W08": {
+    "warehouseMedian": 207.5,
+    "count": 2,
+    "buckets": {
+      "peak": {
+        "n": 1,
+        "bucketMedian": 210,
+        "estimate": 208.33333333333334
+      },
+      "off_peak": {
+        "n": 1,
+        "bucketMedian": 205,
+        "estimate": 206.66666666666666
+      },
+      "weekend": {
+        "n": 0,
+        "bucketMedian": null,
+        "estimate": 207.5
+      }
+    }
+  }
+}

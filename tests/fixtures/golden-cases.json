@@ -1,0 +1,550 @@
+[
+  {
+    "name": "G01 45 Hep B splits across cold-chain warehouses",
+    "order": {
+      "P002": 45
+    },
+    "orderedAt": "2026-10-20T13:00:00+07:00",
+    "expect": {
+      "status": 200,
+      "timeBucket": "off_peak",
+      "best": {
+        "warehouses": [
+          "W04",
+          "W07"
+        ],
+        "allocation": {
+          "W04": {
+            "P002": 40
+          },
+          "W07": {
+            "P002": 5
+          }
+        },
+        "slowestMinutes": 67.5,
+        "cost": 665.0,
+        "score": 0.83375
+      },
+      "alternatives": [
+        {
+          "warehouses": [
+            "W08"
+          ],
+          "allocation": {
+            "W08": {
+              "P002": 45
+            }
+          },
+          "slowestMinutes": 206.6667,
+          "cost": 1120.0,
+          "score": 1.636667
+        },
+        {
+          "warehouses": [
+            "W04",
+            "W08"
+          ],
+          "allocation": {
+            "W04": {
+              "P002": 40
+            },
+            "W08": {
+              "P002": 5
+            }
+          },
+          "slowestMinutes": 206.6667,
+          "cost": 1400.0,
+          "score": 1.916667
+        }
+      ]
+    }
+  },
+  {
+    "name": "G02 50 Hep B needs W08",
+    "order": {
+      "P002": 50
+    },
+    "orderedAt": "2026-10-20T13:00:00+07:00",
+    "expect": {
+      "status": 200,
+      "timeBucket": "off_peak",
+      "best": {
+        "warehouses": [
+          "W08"
+        ],
+        "allocation": {
+          "W08": {
+            "P002": 50
+          }
+        },
+        "slowestMinutes": 206.6667,
+        "cost": 1120.0,
+        "score": 1.636667
+      },
+      "alternatives": [
+        {
+          "warehouses": [
+            "W04",
+            "W08"
+          ],
+          "allocation": {
+            "W04": {
+              "P002": 40
+            },
+            "W08": {
+              "P002": 10
+            }
+          },
+          "slowestMinutes": 206.6667,
+          "cost": 1400.0,
+          "score": 1.916667
+        },
+        {
+          "warehouses": [
+            "W07",
+            "W08"
+          ],
+          "allocation": {
+            "W07": {
+              "P002": 8
+            },
+            "W08": {
+              "P002": 42
+            }
+          },
+          "slowestMinutes": 206.6667,
+          "cost": 1505.0,
+          "score": 2.021667
+        }
+      ]
+    }
+  },
+  {
+    "name": "G03 120 Hep B exceeds shippable stock (158 exist, 108 shippable)",
+    "order": {
+      "P002": 120
+    },
+    "orderedAt": "2026-10-20T13:00:00+07:00",
+    "expect": {
+      "status": 422,
+      "reason": "COLD_CHAIN_UNAVAILABLE",
+      "shortfalls": [
+        {
+          "productId": "P002",
+          "requested": 120,
+          "available": 108
+        }
+      ]
+    }
+  },
+  {
+    "name": "G04 250 gloves single close warehouse",
+    "order": {
+      "P001": 250
+    },
+    "orderedAt": "2026-10-21T10:00:00+07:00",
+    "expect": {
+      "status": 200,
+      "timeBucket": "off_peak",
+      "best": {
+        "warehouses": [
+          "W03"
+        ],
+        "allocation": {
+          "W03": {
+            "P001": 250
+          }
+        },
+        "slowestMinutes": 43.3333,
+        "cost": 175.0,
+        "score": 0.283333
+      },
+      "alternatives": [
+        {
+          "warehouses": [
+            "W01",
+            "W02"
+          ],
+          "allocation": {
+            "W01": {
+              "P001": 200
+            },
+            "W02": {
+              "P001": 50
+            }
+          },
+          "slowestMinutes": 51.6667,
+          "cost": 185.0,
+          "score": 0.314167
+        },
+        {
+          "warehouses": [
+            "W01",
+            "W03"
+          ],
+          "allocation": {
+            "W01": {
+              "P001": 200
+            },
+            "W03": {
+              "P001": 50
+            }
+          },
+          "slowestMinutes": 43.3333,
+          "cost": 250.0,
+          "score": 0.358333
+        }
+      ]
+    }
+  },
+  {
+    "name": "G05 10 Hep B + 100 gloves, Monday rush hour",
+    "order": {
+      "P002": 10,
+      "P001": 100
+    },
+    "orderedAt": "2026-10-19T08:00:00+07:00",
+    "expect": {
+      "status": 200,
+      "timeBucket": "peak",
+      "best": {
+        "warehouses": [
+          "W01",
+          "W04"
+        ],
+        "allocation": {
+          "W01": {
+            "P001": 100
+          },
+          "W04": {
+            "P002": 10
+          }
+        },
+        "slowestMinutes": 63.75,
+        "cost": 355.0,
+        "score": 0.514375
+      },
+      "alternatives": [
+        {
+          "warehouses": [
+            "W03",
+            "W04"
+          ],
+          "allocation": {
+            "W03": {
+              "P001": 100
+            },
+            "W04": {
+              "P002": 10
+            }
+          },
+          "slowestMinutes": 63.75,
+          "cost": 455.0,
+          "score": 0.614375
+        },
+        {
+          "warehouses": [
+            "W04",
+            "W07"
+          ],
+          "allocation": {
+            "W07": {
+              "P001": 100
+            },
+            "W04": {
+              "P002": 10
+            }
+          },
+          "slowestMinutes": 67.5,
+          "cost": 555.0,
+          "score": 0.72375
+        }
+      ]
+    }
+  },
+  {
+    "name": "G06 mixed order where one warehouse could cover all but splitting wins",
+    "order": {
+      "P001": 113,
+      "P002": 5,
+      "P004": 7
+    },
+    "orderedAt": "2026-10-19T19:24:00+07:00",
+    "expect": {
+      "status": 200,
+      "timeBucket": "off_peak",
+      "best": {
+        "warehouses": [
+          "W01",
+          "W04"
+        ],
+        "allocation": {
+          "W01": {
+            "P001": 113
+          },
+          "W04": {
+            "P002": 5,
+            "P004": 7
+          }
+        },
+        "slowestMinutes": 48.75,
+        "cost": 355.0,
+        "score": 0.476875
+      },
+      "alternatives": [
+        {
+          "warehouses": [
+            "W07"
+          ],
+          "allocation": {
+            "W07": {
+              "P001": 113,
+              "P002": 5,
+              "P004": 7
+            }
+          },
+          "slowestMinutes": 67.5,
+          "cost": 385.0,
+          "score": 0.55375
+        },
+        {
+          "warehouses": [
+            "W03",
+            "W04"
+          ],
+          "allocation": {
+            "W03": {
+              "P001": 113
+            },
+            "W04": {
+              "P002": 5,
+              "P004": 7
+            }
+          },
+          "slowestMinutes": 48.75,
+          "cost": 455.0,
+          "score": 0.576875
+        }
+      ]
+    }
+  },
+  {
+    "name": "G07 syringes + paracetamol, Friday peak",
+    "order": {
+      "P003": 100,
+      "P005": 200
+    },
+    "orderedAt": "2026-10-23T17:30:00+07:00",
+    "expect": {
+      "status": 200,
+      "timeBucket": "peak",
+      "best": {
+        "warehouses": [
+          "W01"
+        ],
+        "allocation": {
+          "W01": {
+            "P003": 100,
+            "P005": 200
+          }
+        },
+        "slowestMinutes": 46.0,
+        "cost": 75.0,
+        "score": 0.19
+      },
+      "alternatives": [
+        {
+          "warehouses": [
+            "W05"
+          ],
+          "allocation": {
+            "W05": {
+              "P003": 100,
+              "P005": 200
+            }
+          },
+          "slowestMinutes": 153.3333,
+          "cost": 500.0,
+          "score": 0.883333
+        },
+        {
+          "warehouses": [
+            "W03",
+            "W05"
+          ],
+          "allocation": {
+            "W03": {
+              "P003": 100
+            },
+            "W05": {
+              "P005": 200
+            }
+          },
+          "slowestMinutes": 153.3333,
+          "cost": 675.0,
+          "score": 1.058333
+        }
+      ]
+    }
+  },
+  {
+    "name": "G08 same order on Saturday",
+    "order": {
+      "P003": 100,
+      "P005": 200
+    },
+    "orderedAt": "2026-10-24T11:00:00+07:00",
+    "expect": {
+      "status": 200,
+      "timeBucket": "weekend",
+      "best": {
+        "warehouses": [
+          "W01"
+        ],
+        "allocation": {
+          "W01": {
+            "P003": 100,
+            "P005": 200
+          }
+        },
+        "slowestMinutes": 22.0,
+        "cost": 75.0,
+        "score": 0.13
+      },
+      "alternatives": [
+        {
+          "warehouses": [
+            "W05"
+          ],
+          "allocation": {
+            "W05": {
+              "P003": 100,
+              "P005": 200
+            }
+          },
+          "slowestMinutes": 172.5,
+          "cost": 500.0,
+          "score": 0.93125
+        },
+        {
+          "warehouses": [
+            "W03",
+            "W05"
+          ],
+          "allocation": {
+            "W03": {
+              "P003": 100
+            },
+            "W05": {
+              "P005": 200
+            }
+          },
+          "slowestMinutes": 172.5,
+          "cost": 675.0,
+          "score": 1.10625
+        }
+      ]
+    }
+  },
+  {
+    "name": "G09 UTC input equals Monday 08:00 WIB (timezone test)",
+    "order": {
+      "P002": 10,
+      "P001": 100
+    },
+    "orderedAt": "2026-10-19T01:00:00Z",
+    "expect": {
+      "status": 200,
+      "timeBucket": "peak",
+      "best": {
+        "warehouses": [
+          "W01",
+          "W04"
+        ],
+        "allocation": {
+          "W01": {
+            "P001": 100
+          },
+          "W04": {
+            "P002": 10
+          }
+        },
+        "slowestMinutes": 63.75,
+        "cost": 355.0,
+        "score": 0.514375
+      },
+      "alternatives": [
+        {
+          "warehouses": [
+            "W03",
+            "W04"
+          ],
+          "allocation": {
+            "W03": {
+              "P001": 100
+            },
+            "W04": {
+              "P002": 10
+            }
+          },
+          "slowestMinutes": 63.75,
+          "cost": 455.0,
+          "score": 0.614375
+        },
+        {
+          "warehouses": [
+            "W04",
+            "W07"
+          ],
+          "allocation": {
+            "W07": {
+              "P001": 100
+            },
+            "W04": {
+              "P002": 10
+            }
+          },
+          "slowestMinutes": 67.5,
+          "cost": 555.0,
+          "score": 0.72375
+        }
+      ]
+    }
+  },
+  {
+    "name": "G10 100 Tetanus exceeds shippable stock (135 exist, 85 shippable)",
+    "order": {
+      "P004": 100
+    },
+    "orderedAt": "2026-10-20T13:00:00+07:00",
+    "expect": {
+      "status": 422,
+      "reason": "COLD_CHAIN_UNAVAILABLE",
+      "shortfalls": [
+        {
+          "productId": "P004",
+          "requested": 100,
+          "available": 85
+        }
+      ]
+    }
+  },
+  {
+    "name": "G11 impossible gloves quantity",
+    "order": {
+      "P001": 5000
+    },
+    "orderedAt": "2026-10-20T13:00:00+07:00",
+    "expect": {
+      "status": 422,
+      "reason": "INSUFFICIENT_STOCK",
+      "shortfalls": [
+        {
+          "productId": "P001",
+          "requested": 5000,
+          "available": 1100
+        }
+      ]
+    }
+  }
+]
