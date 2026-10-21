@@ -22,13 +22,17 @@ export default defineConfig({
     projects: [
       {
         extends: true,
-        test: { name: 'unit', include: ['tests/{api,support,domain}/**/*.test.ts'] },
+        test: {
+          name: 'unit',
+          include: ['tests/{api,support,domain}/**/*.test.ts', 'tests/db/**/*.unit.test.ts'],
+        },
       },
       {
         extends: true,
         test: {
           name: 'db',
           include: ['tests/db/**/*.test.ts'],
+          exclude: ['tests/db/**/*.unit.test.ts'],
           fileParallelism: false,
           globalSetup: ['tests/db/global-setup.ts'],
         },

@@ -6,6 +6,17 @@ export const DB = {
   poolMax: 3,
   // Not given by the rules; a short, plain limit so a dead database fails fast on serverless.
   connectTimeoutSeconds: 10,
+  // An order or a reset waits at most this long for stock row locks, so a stuck lock fails fast.
+  lockTimeoutSeconds: 5,
+  // Products, warehouses and delivery-time statistics change rarely, so they are kept in memory
+  // for five minutes. Stock is never cached.
+  referenceCacheMs: 5 * 60 * 1000,
+  // "The last 20 orders".
+  recentOrdersLimit: 20,
+  // Scripts (migrate, seed) need one connection.
+  scriptPoolMax: 1,
+  // Clients used by the concurrency tests: more than one connection, or the race is hidden.
+  testPoolMax: 5,
 };
 
 // Planning. The cost rates are placeholders the real operator would replace. The two scales
