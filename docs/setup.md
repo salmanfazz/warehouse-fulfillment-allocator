@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Node 24 (see `.nvmrc`; Vercel's default is also 24)
+- Node 24 (see `.nvmrc`; `package.json` pins `engines.node` to `24.x`, which Vercel uses)
 - Docker, for the test database
 - A Postgres database for the app (Supabase, using the transaction-mode pooler string)
 
@@ -46,6 +46,8 @@ with `docker start allocator-test-pg`.
 | `npx vitest run --project unit` | Only the tests that need no database |
 | `npm run db:migrate` | Apply `db/migrations/*.sql` to `DATABASE_URL` |
 | `npm run db:seed` | Load products, warehouses, baseline stock and delivery history |
+| `npm run smoke -- <url>` | End-to-end check of a running deployment (see Deploy) |
+| `npm run check:data-api` | Check that Supabase's public Data API cannot read the tables (see Deploy) |
 
 Migrate and seed are safe to run again. Seeding never overwrites stock that already exists.
 
@@ -197,7 +199,7 @@ curl -s -X POST "$BASE/api/v1/reset" -w "\nHTTP %{http_code}\n"
 
 Expected status: 200. All orders are deleted and stock goes back to the starting amounts. This endpoint is public on purpose (the demo has no login).
 
-### Keep-alive (used by the daily cron)
+### Keep-alive (called once a day by the Vercel cron)
 
 ```sh
 curl -s "$BASE/api/cron/keep-alive" -H "Authorization: Bearer $CRON_SECRET" -w "\nHTTP %{http_code}\n"
@@ -220,3 +222,49 @@ curl -s "$BASE/api/v1/nope" -w "\nHTTP %{http_code}\n"
 ```
 
 Expected status: 404, with the same four keys as everything else.
+
+## Deploy
+
+The app runs on Vercel (region `sin1`, set in `vercel.json`) with the database on Supabase. `vercel.json` also
+holds the daily cron: Vercel calls `/api/cron/keep-alive` once a day at 03:00 UTC with
+`Authorization: Bearer $CRON_SECRET`, which keeps the free-tier database from sitting idle.
+
+1. In the Vercel project, set two **production** variables (names only here, never commit the values):
+   `DATABASE_URL` (the Supabase transaction pooler string) and `CRON_SECRET` (32+ random characters).
+2. Commit your work, then deploy from a clean clone of the commit so nothing git-ignored (`.env.local`,
+   `CLAUDE.md`, `notes/`) can be uploaded:
+
+   ```sh
+   git clone . /tmp/allocator-deploy && cp -R .vercel /tmp/allocator-deploy/.vercel
+   cd /tmp/allocator-deploy && vercel deploy --prod
+   ```
+
+3. Smoke test the live URL. It checks health, the page, the keep-alive route, a preview, a place, the read-back, a
+   rejected order, a reset, and two simultaneous orders for the last vials (exactly one must win), then resets again:
+
+   ```sh
+   npm run smoke -- https://<your-app>.vercel.app
+   ```
+
+   It only starts when the database has no orders and baseline stock, so it never erases anyone's orders. A short
+   window remains between that check and its final reset (someone else could place an order in it); that is acceptable
+   for a demo. If you stop it half way (Ctrl-C), a test order may be left behind: run
+   `curl -X POST https://<your-app>.vercel.app/api/v1/reset` to restore the demo data.
+
+   The "keep-alive with the secret is 200" check runs only when `CRON_SECRET` is set in your shell **and equals the
+   production value**; otherwise it is skipped, or fails with status 401. The script does not read `.env.local`
+   (unlike the `db:` scripts). The secret is never printed, and it is only sent over https or to localhost.
+4. Run the cron once by hand with `vercel crons run /api/cron/keep-alive`, then look at the runtime log for the request
+   and its status (it should be 200 if Vercel sends the secret on a manual run; the daily scheduled run does).
+5. Check that the Supabase public Data API cannot read the tables. `SUPABASE_PROJECT_REF` is the `<ref>` in your
+   `https://<ref>.supabase.co` address. Read the anon key (Supabase dashboard, API settings) into a shell variable
+   without echoing it, so it is never written to a file or committed:
+
+   ```sh
+   read -s SUPABASE_ANON_KEY && export SUPABASE_ANON_KEY
+   SUPABASE_PROJECT_REF=<project-ref> npm run check:data-api
+   ```
+
+   Every table must show a check mark with a database error code (`42501` permission denied, or a `PGRST...` code for a
+   table the API does not expose), or an empty list. A refusal without such a code, for example "Invalid API key" from a
+   mistyped key, is reported as a failure because it proves nothing about the tables.
