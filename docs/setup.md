@@ -62,19 +62,27 @@ curl -i http://localhost:3000/api/health
 ## The page
 
 After the first run, open `http://localhost:3000` (use the port the dev server prints). The page is
-one screen with three parts: the order form, the result, and the stock table.
+one screen with four parts: the order form, the result, the stock table, and the order history
+(the last 20 orders, newest first; Reset empties it).
 
 To see the main flow:
 
 1. Choose "Vaccine - Hepatitis B (10-dose vial)", enter `45`, and press **Place order**.
-2. The result shows W04 sending 40 vials and W07 sending 5, with the time, the cost, the reasons and
-   the other options. In the stock table W04 shows `0 (−40)` and W07 shows `3 (−5)`.
-3. Press **Reset demo data** to restore the starting stock.
+2. The result shows W04 sending 40 vials and W07 sending 5, with the time, the cost in rupiah (a
+   step-by-step line per shipment), the reasons, a side-by-side table of the chosen plan and the two runner-ups, and a short "How the best plan is chosen" note. In the stock table W04 shows `0 (−40)` and W07 shows `3 (−5)`.
+3. Press **Reset demo data** to restore the starting stock, clear the order history and empty the
+   order form.
 
 Other things to try: **Preview** plans the same order without reserving anything; 120 Hep B vials
 gives a "cannot be fulfilled" result, because only 108 of the 158 vials are in warehouses that can
 ship them cold (the dimmed cells in the stock table); an empty quantity shows an error next to the
-field without sending anything.
+field without sending anything. The quantity field only accepts digits, and every item row,
+including the last one, can be removed.
+
+Costs are shown as rupiah, but the money is illustrative: the API and the planner work in
+placeholder cost units (rates 50, 5 per km and 1.4 for a refrigerated van, in `src/config.ts`), and
+the page shows 1 cost unit as Rp 1.000 (`DISPLAY.rupiahPerCostUnit`). Both the rates and that
+factor are assumptions, not real prices.
 
 "Ordered at" is read as WIB (UTC+7) and starts as the current WIB time. Empty it to use the
 server's time. Pressing Enter in the form runs Preview, never Place order. The page uses the same
