@@ -5,6 +5,7 @@ const json = (path: string) => JSON.parse(readFileSync(path, 'utf8'));
 
 describe('deployment config', () => {
   const vercel = json('vercel.json') as {
+    framework?: string;
     regions?: string[];
     crons?: { path: string; schedule: string }[];
   };
@@ -12,6 +13,12 @@ describe('deployment config', () => {
     scripts: Record<string, string>;
     engines?: { node?: string };
   };
+
+  it('builds_as_a_next_app_whatever_the_project_preset_says', () => {
+    // The Vercel project was created with the preset "Other", which fails with "No Output
+    // Directory named public"; the preset in this file overrides it.
+    expect(vercel.framework).toBe('nextjs');
+  });
 
   it('runs_in_the_singapore_region', () => {
     expect(vercel.regions).toEqual(['sin1']);
