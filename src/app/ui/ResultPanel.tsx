@@ -244,7 +244,7 @@ function PlanExplainer() {
         </li>
         <li>
           <strong>Speed and cost count equally.</strong>
-          {` Each candidate is judged on two things: how long until the last shipment arrives, and the total cost. The brief does not say which matters more, so they count equally. To compare minutes with money, ${formatNumber(PLAN.etaScaleMinutes)} minutes is treated as worth the same as ${formatRupiah(PLAN.costScale)}. Both are assumptions of this demo; an operator would choose them. This is why the winner is not always the fastest or the cheapest plan: compare the rows above.`}
+          {` Each candidate is judged on two things: how long until the last shipment arrives, and the total cost. The task does not say which matters more, so they count equally. To compare minutes with money, ${formatNumber(PLAN.etaScaleMinutes)} minutes is treated as worth the same as ${formatRupiah(PLAN.costScale)}. Both are assumptions of this demo; an operator would choose them. This is why the winner is not always the fastest or the cheapest plan: compare the rows above.`}
         </li>
         <li>
           <strong>Winner.</strong> The plan with the best balance wins. On a tie, fewer shipments

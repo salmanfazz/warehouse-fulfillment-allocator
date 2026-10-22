@@ -42,7 +42,7 @@ export const PLAN = {
   scoreTieDecimals: 9,
 };
 
-// How the page shows money. The brief gives no prices, and the cost rates above are placeholders,
+// How the page shows money. The task gives no prices, and the cost rates above are placeholders,
 // so this factor is an assumption too: it only makes the numbers read like rupiah. The API, the
 // planner and the tests all stay in cost units; only the page multiplies.
 export const DISPLAY = {
