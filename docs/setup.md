@@ -231,8 +231,8 @@ holds the daily cron: Vercel calls `/api/cron/keep-alive` once a day at 03:00 UT
 
 1. In the Vercel project, set two **production** variables (names only here, never commit the values):
    `DATABASE_URL` (the Supabase transaction pooler string) and `CRON_SECRET` (32+ random characters).
-2. Commit your work, then deploy from a clean clone of the commit so nothing git-ignored (`.env.local`,
-   `CLAUDE.md`, `notes/`) can be uploaded:
+2. Commit your work, then deploy from a clean clone of the commit so nothing git-ignored (such as `.env.local`
+   and the local notes) can be uploaded:
 
    ```sh
    git clone . /tmp/allocator-deploy && cp -R .vercel /tmp/allocator-deploy/.vercel
