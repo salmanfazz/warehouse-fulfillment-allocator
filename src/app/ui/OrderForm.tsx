@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react';
 import { HTTP } from '@/config';
-import { takenByOthers, type Row, type RowErrors } from './form';
+import { digitsOnly, takenByOthers, type Row, type RowErrors } from './form';
 import type { Action } from './format';
 import type { Product } from './types';
 
@@ -38,6 +38,7 @@ export function OrderForm(props: Props) {
       <form onSubmit={submit} noValidate aria-busy={busy !== null}>
         <fieldset className="items">
           <legend>Items</legend>
+          {rows.length === 0 && <p className="hint empty-items">No items. Use Add item.</p>}
           {rows.map((row, index) => {
             const number = index + 1;
             const problem = rowErrors[row.id] ?? {};
@@ -82,7 +83,9 @@ export function OrderForm(props: Props) {
                     disabled={locked}
                     aria-invalid={problem.quantity ? true : undefined}
                     aria-describedby={problem.quantity ? `quantity-${row.id}-error` : undefined}
-                    onChange={(e) => props.onRowChange(row.id, { quantity: e.target.value })}
+                    onChange={(e) =>
+                      props.onRowChange(row.id, { quantity: digitsOnly(e.target.value) })
+                    }
                   />
                   {problem.quantity && (
                     <p className="field-error" id={`quantity-${row.id}-error`}>
@@ -94,7 +97,7 @@ export function OrderForm(props: Props) {
                   <button
                     type="button"
                     className="btn btn-quiet"
-                    disabled={locked || rows.length === 1}
+                    disabled={locked}
                     onClick={() => props.onRemoveRow(row.id)}
                   >
                     Remove<span className="sr-only"> item {number}</span>
@@ -113,6 +116,7 @@ export function OrderForm(props: Props) {
         <div className="row-tools">
           <button
             type="button"
+            id="add-item"
             className="btn"
             disabled={locked || rows.length >= HTTP.maxItems}
             onClick={props.onAddRow}

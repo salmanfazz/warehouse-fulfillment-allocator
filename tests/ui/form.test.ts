@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildBody,
   checkRows,
+  digitsOnly,
   mapServerErrors,
   newRow,
   takenByOthers,
@@ -188,5 +189,30 @@ describe('mapServerErrors', () => {
       'Body must be valid JSON',
       'quantity must be a number',
     ]);
+  });
+});
+
+describe('digitsOnly', () => {
+  it('keeps_digits_and_drops_everything_else', () => {
+    expect(digitsOnly('12ab3')).toBe('123');
+    expect(digitsOnly('-5')).toBe('5');
+    expect(digitsOnly('1e3')).toBe('13');
+    expect(digitsOnly('1.5')).toBe('15');
+    expect(digitsOnly(' 7 ')).toBe('7');
+    expect(digitsOnly('٣')).toBe(''); // a non-ASCII digit is not accepted
+  });
+
+  it('cuts_to_the_length_of_the_maximum', () => {
+    expect(digitsOnly('123456789')).toBe('12345');
+    expect(digitsOnly('')).toBe('');
+  });
+});
+
+describe('an_empty_item_list', () => {
+  it('is_not_valid_and_asks_for_an_item', () => {
+    const result = checkRows([]);
+    expect(result.valid).toBe(false);
+    expect(result.formError).toBe('Choose a product and a quantity.');
+    expect(result.items).toEqual([]);
   });
 });

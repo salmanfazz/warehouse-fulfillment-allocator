@@ -7,6 +7,11 @@ export type RowErrors = Record<number, { productId?: string; quantity?: string }
 
 export const newRow = (id: number): Row => ({ id, productId: '', quantity: '' });
 
+// What the quantity field keeps while the user types or pastes: ASCII digits only, no longer than
+// the largest allowed quantity. The range itself (1 to the maximum) is still checked on submit.
+export const digitsOnly = (text: string): string =>
+  text.replace(/[^0-9]/g, '').slice(0, String(HTTP.maxQuantity).length);
+
 const QUANTITY_MESSAGE = `Enter a whole number from 1 to ${HTTP.maxQuantity}`;
 const WHOLE_NUMBER = /^\d+$/;
 
