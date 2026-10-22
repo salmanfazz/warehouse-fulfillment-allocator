@@ -83,3 +83,21 @@ export const HTTP = {
   maxUnknownFieldsListed: 5,
   maxEchoedNameLength: 32,
 };
+
+// The deployment smoke test (scripts/smoke.ts). The order and the expected split come from the
+// baseline seed data and the documented example (45 Hep B vials: W04 has 40, W07 sends the other
+// 5). The concurrent pair is two orders of 60 against the 108 shippable vials, so exactly one can
+// win. The oversize quantity is more Hep B than exists (158). The timeout is a plain limit so a
+// sleeping free-tier function can still wake up. Baseline stock is read from src/db/seed-data.ts.
+export const SMOKE = {
+  productId: 'P002',
+  quantity: 45,
+  orderedAt: '2026-10-20T13:00:00+07:00',
+  expectedShipments: [
+    { warehouseId: 'W04', quantity: 40 },
+    { warehouseId: 'W07', quantity: 5 },
+  ],
+  concurrentQuantity: 60,
+  tooManyQuantity: 500,
+  requestTimeoutMs: 15000,
+};

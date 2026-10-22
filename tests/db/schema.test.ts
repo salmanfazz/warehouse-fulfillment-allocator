@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { migrate } from '@/db/migrate';
+import { TABLES as CHECKED_BY_DATA_API_SCRIPT } from '../../scripts/check-data-api';
 import { inRolledBackTx, sqlState, testSql } from './helpers';
 
 const sql = testSql();
@@ -32,6 +33,10 @@ async function privilegeFlags(run: typeof sql, tables: string[]) {
 }
 
 describe('schema', () => {
+  it('the_data_api_check_script_covers_every_public_table', () => {
+    expect([...CHECKED_BY_DATA_API_SCRIPT].sort()).toEqual(TABLES);
+  });
+
   it('six_tables_exist', async () => {
     const rows = await sql<{ tablename: string }[]>`
       select tablename from pg_tables where schemaname = 'public' order by tablename`;
