@@ -439,6 +439,61 @@ select:disabled {
 
 .totals {
   font-variant-numeric: tabular-nums;
+  margin: 0;
+  padding-left: var(--space-5);
+  display: grid;
+  gap: var(--space-2);
+  max-width: 70ch;
+}
+
+.breakdown ul {
+  margin: var(--space-2) 0;
+  padding-left: var(--space-5);
+  display: grid;
+  gap: var(--space-2);
+  max-width: 70ch;
+  font-variant-numeric: tabular-nums;
+}
+
+.explainer {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  max-width: 70ch;
+}
+
+.chosen th,
+.chosen td {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
+.formula {
+  display: block;
+  margin: var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.explainer summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.explainer ol {
+  margin: var(--space-3) 0;
+  padding-left: var(--space-5);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.empty-items {
+  margin: 0 0 var(--space-3);
 }
 
 .reasons {

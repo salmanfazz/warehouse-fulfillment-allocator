@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  breakdownText,
   canShipCold,
   coldChainLabel,
+  costBreakdown,
   failureMessage,
   formatChange,
   formatNumber,
+  formatRupiah,
   itemsText,
   reasonText,
 } from '@/app/ui/format';
+import { shipmentCost } from '@/domain/plan';
 
 describe('numbers', () => {
   it('thousands_separators', () => {
@@ -134,5 +138,51 @@ describe('failureMessage', () => {
     expect(failureMessage('preview', envelope(500, 'Something went wrong.'))).toBe(
       'Something went wrong. Nothing was reserved.',
     );
+  });
+});
+
+describe('rupiah', () => {
+  it('shows_cost_units_as_rupiah_with_the_display_factor', () => {
+    expect(formatRupiah(665)).toBe('Rp 665.000');
+    expect(formatRupiah(0)).toBe('Rp 0');
+  });
+
+  it('removes_float_noise', () => {
+    expect(formatRupiah(244.99999999999997)).toBe('Rp 245.000');
+  });
+});
+
+describe('costBreakdown', () => {
+  const distances = [5, 12, 25, 30, 45, 90, 95, 150];
+
+  it('adds_up_to_the_domain_cost_for_every_distance_and_vehicle', () => {
+    for (const distanceKm of distances) {
+      for (const cold of [false, true]) {
+        const warehouse = {
+          id: 'W',
+          city: 'X',
+          distanceKm,
+          hasColdStorage: cold,
+          hasRefrigeratedVehicle: cold,
+        };
+        const b = costBreakdown(distanceKm, cold ? 'refrigerated' : 'standard');
+        expect(b.total).toBeCloseTo(shipmentCost(warehouse, cold), 9);
+      }
+    }
+  });
+
+  it('has_no_multiplier_for_a_standard_vehicle', () => {
+    expect(costBreakdown(5, 'standard').multiplier).toBeNull();
+    expect(costBreakdown(5, 'refrigerated').multiplier).toBe(1.4);
+  });
+
+  it('explains_a_refrigerated_shipment_in_one_line', () => {
+    expect(breakdownText(30, 'refrigerated')).toBe(
+      '(Rp 50.000 + 30 km × Rp 5.000) × 1.4 = Rp 200.000 × 1.4 = Rp 280.000',
+    );
+  });
+
+  it('explains_a_standard_shipment_with_a_multiplier_of_one', () => {
+    expect(breakdownText(5, 'standard')).toBe('(Rp 50.000 + 5 km × Rp 5.000) × 1 = Rp 75.000');
   });
 });

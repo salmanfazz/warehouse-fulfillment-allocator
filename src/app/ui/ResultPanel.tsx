@@ -1,5 +1,14 @@
 import { useEffect, useRef } from 'react';
-import { formatNumber, itemsText, reasonText } from './format';
+import { PLAN } from '@/config';
+import {
+  breakdownText,
+  formatNumber,
+  formatRupiah,
+  formatWib,
+  itemsText,
+  reasonInRupiah,
+  reasonText,
+} from './format';
 import type { ResultState } from './types';
 
 type Props = { result: ResultState; nameOf: (productId: string) => string };
@@ -52,7 +61,10 @@ export function ResultPanel({ result, nameOf }: Props) {
             <h3 tabIndex={-1} ref={heading}>
               Demo data reset
             </h3>
-            <p>Orders were cleared and the stock is back to its starting amounts.</p>
+            <p>
+              Orders were cleared, the stock is back to its starting amounts, and the order form is
+              empty again.
+            </p>
           </div>
         )}
       </div>
@@ -90,7 +102,7 @@ function Plan({
             Order <span className="order-id">{plan.orderId}</span>
           </p>
         )}
-        <p className="sub">For {plan.orderedAt.replace('T', ' ').replace(/:00\+07:00$/, '')} WIB</p>
+        <p className="sub">For {formatWib(plan.orderedAt)}</p>
       </div>
 
       <div className="table-scroll">
@@ -121,23 +133,48 @@ function Plan({
                 <td>{s.vehicle === 'refrigerated' ? 'Refrigerated' : 'Standard'}</td>
                 <td>{itemsText(s.items, nameOf)}</td>
                 <td className="num">{formatNumber(s.minutes)}</td>
-                <td className="num">{formatNumber(s.cost)}</td>
+                <td className="num">{formatRupiah(s.cost)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <p className="totals">
-        Total: <strong>{formatNumber(plan.totalMinutes)} min</strong> (the slowest shipment) ·{' '}
-        <strong>{formatNumber(plan.totalCost)} cost units</strong>
-      </p>
+      <div className="breakdown">
+        <h4>How each cost is worked out</h4>
+        <p className="formula">{`Shipment cost = (fixed fee + km × rate per km) × multiplier`}</p>
+        <p className="hint">
+          {`Fixed fee ${formatRupiah(PLAN.baseCostPerShipment)}, rate ${formatRupiah(PLAN.costPerKm)} per km. The multiplier is ${PLAN.coldMultiplier} for a refrigerated van (the shipment holds a vaccine) and 1 for a standard vehicle. Work out the part in parentheses first.`}
+        </p>
+        <ul>
+          {plan.shipments.map((s) => (
+            <li key={s.warehouseId}>
+              <strong>{s.warehouseId}</strong> ({formatNumber(s.distanceKm)} km,{' '}
+              {s.vehicle === 'refrigerated' ? 'refrigerated' : 'standard'}):{' '}
+              {breakdownText(s.distanceKm, s.vehicle)}
+            </li>
+          ))}
+        </ul>
+        <p className="hint">
+          The cost is per shipment (per trip), so it does not depend on how many units are in it.
+        </p>
+      </div>
+
+      <ul className="totals">
+        <li>
+          Total time: <strong>{formatNumber(plan.totalMinutes)} min</strong>, the slowest shipment.
+          The shipments travel at the same time, so the order is complete when the last one arrives.
+        </li>
+        <li>
+          Total cost: <strong>{formatRupiah(plan.totalCost)}</strong>, the shipments added together.
+        </li>
+      </ul>
 
       <div>
         <h4>Why this plan</h4>
         <ul className="reasons">
           {plan.reasons.map((reason) => (
-            <li key={reason}>{reason}</li>
+            <li key={reason}>{reasonInRupiah(reason)}</li>
           ))}
         </ul>
       </div>
@@ -145,10 +182,14 @@ function Plan({
       {plan.alternatives.length > 0 && (
         <div className="table-scroll">
           <table>
-            <caption>Other options</caption>
+            <caption>Plans compared</caption>
             <thead>
               <tr>
+                <th scope="col">Rank</th>
                 <th scope="col">Warehouses</th>
+                <th scope="col" className="num">
+                  Shipments
+                </th>
                 <th scope="col" className="num">
                   Total minutes
                 </th>
@@ -158,18 +199,59 @@ function Plan({
               </tr>
             </thead>
             <tbody>
-              {plan.alternatives.map((a) => (
+              <tr className="chosen">
+                <th scope="row">Chosen</th>
+                <td>{plan.shipments.map((s) => s.warehouseId).join(' + ')}</td>
+                <td className="num">{formatNumber(plan.shipments.length)}</td>
+                <td className="num">{formatNumber(plan.totalMinutes)}</td>
+                <td className="num">{formatRupiah(plan.totalCost)}</td>
+              </tr>
+              {plan.alternatives.map((a, index) => (
                 <tr key={a.warehouseIds.join('+')}>
-                  <th scope="row">{a.warehouseIds.join(' + ')}</th>
+                  <th scope="row">{ordinal(index + 2)} best</th>
+                  <td>{a.warehouseIds.join(' + ')}</td>
+                  <td className="num">{formatNumber(a.warehouseIds.length)}</td>
                   <td className="num">{formatNumber(a.totalMinutes)}</td>
-                  <td className="num">{formatNumber(a.totalCost)}</td>
+                  <td className="num">{formatRupiah(a.totalCost)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      <PlanExplainer />
     </>
+  );
+}
+
+const ordinal = (n: number): string => ['', '', '2nd', '3rd'][n] ?? `${n}th`;
+
+// The same rules for every order, in plain words. The numbers come from the planner's constants.
+function PlanExplainer() {
+  return (
+    <details className="explainer">
+      <summary>How the best plan is chosen</summary>
+      <ol>
+        <li>
+          <strong>Who can ship.</strong> A vaccine needs a warehouse with cold storage and a
+          refrigerated van. Other products can ship from any warehouse that has them in stock.
+        </li>
+        <li>
+          <strong>Candidates.</strong> Every group of warehouses that can cover the whole order
+          together is a candidate. An order is shipped completely or not at all. Each warehouse in a
+          group ships at least one item, and products are taken from the fastest warehouse first.
+        </li>
+        <li>
+          <strong>Speed and cost count equally.</strong>
+          {` Each candidate is judged on two things: how long until the last shipment arrives, and the total cost. The brief does not say which matters more, so they count equally. To compare minutes with money, ${formatNumber(PLAN.etaScaleMinutes)} minutes is treated as worth the same as ${formatRupiah(PLAN.costScale)}. Both are assumptions of this demo; an operator would choose them. This is why the winner is not always the fastest or the cheapest plan: compare the rows above.`}
+        </li>
+        <li>
+          <strong>Winner.</strong> The plan with the best balance wins. On a tie, fewer shipments
+          win, then the warehouse ids. The two runner-ups are in the table above.
+        </li>
+      </ol>
+    </details>
   );
 }
 

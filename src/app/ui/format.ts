@@ -1,12 +1,76 @@
-import type { OrderItem } from '@/domain/types';
+import { DISPLAY, PLAN } from '@/config';
+import type { OrderItem, Shipment } from '@/domain/types';
 
 const numbers = new Intl.NumberFormat('en-US'); // fixed locale: the same text for every visitor
 
 export const formatNumber = (n: number): string => numbers.format(n);
 
+const rupiah = new Intl.NumberFormat('id-ID', {
+  style: 'currency',
+  currency: 'IDR',
+  maximumFractionDigits: 0,
+});
+
+// Cost units from the API shown as rupiah, e.g. 665 -> "Rp 665.000". The text uses a plain space.
+export const formatRupiah = (costUnits: number): string =>
+  rupiah.format(costUnits * DISPLAY.rupiahPerCostUnit).replace(/\u00a0/g, ' ');
+
+// The planner writes its reasons in cost units ("cost 355", "costs 100 more (455 vs 355)"); the page
+// shows rupiah, so those figures are rewritten here. Only the cost phrases are touched, and a test
+// runs the real planner over the golden cases to catch the wording drifting away from these patterns.
+export const reasonInRupiah = (sentence: string): string =>
+  sentence
+    .replace(
+      /\b(costs?) (\d+(?:\.\d+)?)/g,
+      (_m, word: string, n: string) => `${word} ${formatRupiah(Number(n))}`,
+    )
+    .replace(
+      /\((\d+(?:\.\d+)?) vs (\d+(?:\.\d+)?)\)/g,
+      (_m, a: string, b: string) => `(${formatRupiah(Number(a))} vs ${formatRupiah(Number(b))})`,
+    );
+
+export type CostBreakdown = {
+  fixed: number;
+  perKm: number;
+  distancePart: number; // perKm times the distance
+  subtotal: number; // fixed + distancePart
+  multiplier: number | null; // the cold multiplier, or null for a standard vehicle
+  total: number;
+};
+
+// The shipment cost rule from the planner, split into the parts a reader can follow. Uses the same
+// PLAN constants; a test checks the total against the planner's own function.
+export function costBreakdown(distanceKm: number, vehicle: Shipment['vehicle']): CostBreakdown {
+  const fixed = PLAN.baseCostPerShipment;
+  const distancePart = PLAN.costPerKm * distanceKm;
+  const subtotal = fixed + distancePart;
+  const multiplier = vehicle === 'refrigerated' ? PLAN.coldMultiplier : null;
+  return {
+    fixed,
+    perKm: PLAN.costPerKm,
+    distancePart,
+    subtotal,
+    multiplier,
+    total: multiplier === null ? subtotal : subtotal * multiplier,
+  };
+}
+
+// One shipment's cost worked out in the order a reader follows it: the part in parentheses first,
+// then the multiplier. A standard vehicle multiplies by 1, so every line has the same shape.
+export function breakdownText(distanceKm: number, vehicle: Shipment['vehicle']): string {
+  const b = costBreakdown(distanceKm, vehicle);
+  const inside = `(${formatRupiah(b.fixed)} + ${formatNumber(distanceKm)} km × ${formatRupiah(b.perKm)})`;
+  if (b.multiplier === null) return `${inside} × 1 = ${formatRupiah(b.total)}`;
+  return `${inside} × ${b.multiplier} = ${formatRupiah(b.subtotal)} × ${b.multiplier} = ${formatRupiah(b.total)}`;
+}
+
 // "−40" with a real minus sign, "+5"
 export const formatChange = (n: number): string =>
   n < 0 ? `−${formatNumber(-n)}` : `+${formatNumber(n)}`;
+
+// "2026-10-19T08:00:00+07:00" -> "2026-10-19 08:00 WIB". Anything else keeps its offset.
+export const formatWib = (iso: string): string =>
+  /:00\+07:00$/.test(iso) ? `${iso.replace('T', ' ').replace(/:00\+07:00$/, '')} WIB` : iso;
 
 export function itemsText(items: OrderItem[], nameOf: (productId: string) => string): string {
   return items.map((i) => `${nameOf(i.productId)} ×${formatNumber(i.quantity)}`).join(', ');
