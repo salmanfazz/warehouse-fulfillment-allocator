@@ -1,4 +1,4 @@
-import type { OrderPlan, Product, Shortfall } from '@/domain/types';
+import type { OrderItem, OrderPlan, Product, Shortfall } from '@/domain/types';
 
 export type { Product };
 
@@ -10,6 +10,17 @@ export type WarehouseData = {
   hasColdStorage: boolean;
   hasRefrigeratedVehicle: boolean;
   stock: Record<string, number>;
+};
+
+// One line of GET /api/v1/orders (the last 20, newest first).
+export type OrderSummaryData = {
+  orderId: string;
+  createdAt: string;
+  orderedAt: string;
+  items: OrderItem[];
+  warehouseIds: string[];
+  totalMinutes: number;
+  totalCost: number;
 };
 
 // An order plan; a placed order also has its id.

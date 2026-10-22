@@ -5,12 +5,13 @@ import { callApi } from './ui/api';
 import { buildBody, checkRows, newRow, type Checked, type Row, type RowErrors } from './ui/form';
 import type { Action } from './ui/format';
 import { OrderForm } from './ui/OrderForm';
+import { OrderHistory } from './ui/OrderHistory';
 import { outcomeOf } from './ui/outcome';
 import { ResultPanel } from './ui/ResultPanel';
 import { stockChanges } from './ui/stock';
 import { StockTable } from './ui/StockTable';
 import { currentWibInput, orderedAtFromInput } from './ui/time';
-import type { Product, ResultState, WarehouseData } from './ui/types';
+import type { OrderSummaryData, Product, ResultState, WarehouseData } from './ui/types';
 
 const PATHS: Record<Action, string> = {
   preview: '/api/v1/orders/preview',
@@ -28,6 +29,11 @@ async function fetchProducts(): Promise<Product[] | null> {
 async function fetchStock(): Promise<WarehouseData[] | null> {
   const res = await callApi<{ warehouses: WarehouseData[] }>('/api/v1/warehouses');
   return res.kind === 'envelope' && res.status === 200 ? res.body.data.warehouses : null;
+}
+
+async function fetchOrders(): Promise<OrderSummaryData[] | null> {
+  const res = await callApi<{ orders: OrderSummaryData[] }>('/api/v1/orders');
+  return res.kind === 'envelope' && res.status === 200 ? res.body.data.orders : null;
 }
 
 let pageLoadedAtWib: string | undefined;
@@ -48,6 +54,9 @@ export default function Home() {
   const [changes, setChanges] = useState<Record<string, number>>({});
   const [stockVersion, setStockVersion] = useState(0);
   const shown = useRef<WarehouseData[] | null>(null); // the stock view on screen, to spot changes
+
+  const [orders, setOrders] = useState<OrderSummaryData[] | null>(null);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
 
   const [rows, setRows] = useState<Row[]>([newRow(1)]);
   const nextRowId = useRef(2);
@@ -79,6 +88,16 @@ export default function Home() {
 
   const loadStock = useCallback(async () => applyStock(await fetchStock()), [applyStock]);
 
+  const loadOrders = useCallback(async () => {
+    const next = await fetchOrders();
+    if (next) {
+      setOrders(next);
+      setOrdersError(null);
+    } else {
+      setOrdersError('Could not refresh the orders.');
+    }
+  }, []);
+
   // Products and stock arrived (or did not). State is only set from here, after the answers.
   const applyLoaded = useCallback(
     (list: Product[] | null, stock: WarehouseData[] | null) => {
@@ -93,6 +112,11 @@ export default function Home() {
     let ignore = false; // a repeated mount (development) or an unmount must not apply a late answer
     void Promise.all([fetchProducts(), fetchStock()]).then(([list, stock]) => {
       if (!ignore) applyLoaded(list, stock);
+    });
+    void fetchOrders().then((next) => {
+      if (ignore) return;
+      if (next) setOrders(next);
+      else setOrdersError('Could not load the orders.');
     });
     return () => {
       ignore = true;
@@ -110,7 +134,9 @@ export default function Home() {
       ? checked.errors[firstRow.id]?.productId
         ? `product-${firstRow.id}`
         : `quantity-${firstRow.id}`
-      : `product-${rows[0]?.id}`;
+      : rows[0]
+        ? `product-${rows[0].id}`
+        : 'add-item'; // an empty list: send the user to Add item
     requestAnimationFrame(() => document.getElementById(target)?.focus());
   }
 
@@ -140,8 +166,14 @@ export default function Home() {
       const res = await callApi<unknown>(PATHS[action], { method: 'POST', body });
       const outcome = outcomeOf(action, res, rows, sentRowIds);
       if (outcome.rowErrors) setRowErrors(outcome.rowErrors);
+      if (outcome.clearForm) {
+        const id = nextRowId.current++;
+        setRows([newRow(id)]); // the same empty start as a fresh page
+        setRowErrors({});
+        setFormError(null);
+      }
       setResult(outcome.result);
-      if (outcome.refreshStock) await loadStock();
+      if (outcome.refreshStock) await Promise.all([loadStock(), loadOrders()]);
     } finally {
       running.current = false;
       setBusy(null);
@@ -197,6 +229,7 @@ export default function Home() {
           notice={stockNotice}
           busy={busy !== null}
           onRefresh={() => {
+            void loadOrders(); // Refresh also retries a history that failed to load
             if (warehouses && products) {
               void loadStock();
             } else {
@@ -209,9 +242,11 @@ export default function Home() {
         />
       </div>
 
+      <OrderHistory orders={orders} error={ordersError} nameOf={nameOf} />
+
       <p className="page-footer">
-        Times are in WIB (UTC+7). Costs are in placeholder cost units; the real rates would replace
-        them.
+        Times are in WIB (UTC+7). Costs are shown in rupiah, but the rates behind them are
+        placeholders and 1 cost unit is shown as Rp 1.000; real rates would replace them.
       </p>
     </main>
   );

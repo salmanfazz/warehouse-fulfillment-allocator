@@ -5,8 +5,14 @@ import { failureMessage, type Action } from './format';
 import type { PlanData, ResultState } from './types';
 
 // What the page does with an answer: what to show, whether the stock may have changed (so it must
-// be read again), and which rows get a message next to their fields.
-export type Outcome = { result: ResultState; refreshStock: boolean; rowErrors?: RowErrors };
+// be read again), which rows get a message next to their fields, and whether the order form goes
+// back to its empty start (only after a reset the server confirmed).
+export type Outcome = {
+  result: ResultState;
+  refreshStock: boolean;
+  rowErrors?: RowErrors;
+  clearForm?: boolean;
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -37,7 +43,9 @@ export function outcomeOf(
   });
 
   if (status === 200 || status === 201) {
-    if (action === 'reset') return { result: { kind: 'reset' }, refreshStock: true };
+    if (action === 'reset') {
+      return { result: { kind: 'reset' }, refreshStock: true, clearForm: true };
+    }
     if (!isPlan(body.data)) return failed();
     return {
       result: { kind: 'plan', placed: action === 'place', plan: body.data },

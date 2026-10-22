@@ -30,6 +30,20 @@ describe('outcomeOf: a successful answer', () => {
     expect(o.refreshStock).toBe(true);
   });
 
+  it('a_confirmed_reset_also_clears_the_order_form', () => {
+    expect(outcomeOf('reset', reply(200, null), rows, []).clearForm).toBe(true);
+  });
+
+  it('only_a_confirmed_reset_clears_the_form', () => {
+    const others = [
+      outcomeOf('preview', reply(200, plan), rows, [1]),
+      outcomeOf('place', reply(201, { orderId: 'x', ...plan }), rows, [1]),
+      outcomeOf('reset', reply(500, null), rows, []), // unknown outcome: keep what the user typed
+      outcomeOf('reset', { kind: 'network' }, rows, []),
+    ];
+    for (const o of others) expect(o.clearForm).toBeFalsy();
+  });
+
   it('a_200_whose_data_is_not_a_plan_is_reported_as_a_failure_instead_of_crashing_the_page', () => {
     for (const data of [null, 'oops', {}, { shipments: 'no' }]) {
       const o = outcomeOf('place', reply(200, data), rows, [1]);
