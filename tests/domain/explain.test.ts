@@ -135,7 +135,7 @@ describe('sentence 3', () => {
     const singleWarehouse = candidate(['W07'], 90, 400);
     expect(third({ singleWarehouse })).toBe(
       'Next best was W03 + W04: same time but costs 100 more (455 vs 355); ' +
-        'one warehouse (W07) could cover the whole order, but the split scores better on speed and cost together.',
+        'one warehouse (W07) could cover the whole order, but the split is better on speed and cost together.',
     );
   });
 
@@ -143,7 +143,7 @@ describe('sentence 3', () => {
     const only = candidate(['W07'], 90, 400);
     expect(third({ alternatives: [only], singleWarehouse: only })).toBe(
       'Next best was W07: 26 min slower and costs 45 more (400 vs 355); ' +
-        'that one warehouse could cover the whole order, but the split scores better on speed and cost together.',
+        'that one warehouse could cover the whole order, but the split is better on speed and cost together.',
     );
   });
 

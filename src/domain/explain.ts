@@ -64,7 +64,7 @@ function howItCompares(ctx: PlanContext): string {
   const connector = minutes > 0 !== cost > 0 ? 'but' : 'and';
   const note =
     singleWarehouse && chosen.warehouseIds.length > 1
-      ? `; ${singleWarehouseNote(singleWarehouse, next)} could cover the whole order, but the split scores better on speed and cost together`
+      ? `; ${singleWarehouseNote(singleWarehouse, next)} could cover the whole order, but the split is better on speed and cost together`
       : '';
   return `Next best was ${plus(next.warehouseIds)}: ${timePhrase} ${connector} ${costPhrase}${figures}${note}.`;
 }

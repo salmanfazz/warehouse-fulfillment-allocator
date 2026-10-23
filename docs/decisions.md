@@ -111,7 +111,7 @@ Section 14 lists the known limitations and section 15 the assumptions that have 
 - Reference data can be up to 5 minutes old.
 - The planner is capped at 12 warehouses.
 - The delivery history is small (section 4) and there is no traffic or routing data; there is one fixed customer location.
-- The page's rewriting of the planner's sentences into rupiah depends on their wording; returning the figures from the API as numbers would remove that coupling. The planner's own phrase "scores better on speed and cost together" refers to a score that the page does not show.
+- The page's rewriting of the planner's sentences into rupiah depends on their wording; returning the figures from the API as numbers would remove that coupling.
 - The page duplicates a few planner rules (the cost formula, the cold-chain flags test) and hard-codes the "last 20" and "UTC+7" texts; tests keep the cost formula in step with the planner.
 - The migration runner has no checksums and no lock between concurrent runs; the seed never deletes delivery records that were removed from the file.
 - `npm audit` reports 5 high advisories, all in development-only tooling (`eslint-config-next` and its dependencies); no runtime dependency is affected.
@@ -121,11 +121,11 @@ Section 14 lists the known limitations and section 15 the assumptions that have 
 
 The cost rates (50 + 5 per km, times 1.4 for a refrigerated vehicle), the equal weights, the two reference sizes (200 minutes and 500 cost units), the rupiah display factor (1 cost unit shown as Rp 1.000), the shrinkage constant 2 and the peak windows come from the planning phase, not from operator data. No real prices, traffic or routing data were available. A real operator would replace them; they all live in `src/config.ts`.
 
-## Verified on 2026-10-22, and still open
+## Verified on 2026-10-22 and 23, and still open
 
-- **Verified:** the public Data API check (`npm run check:data-api`) was run against the live project by the owner and no table was readable with the public key; the catalog query on the live database agrees (row level security on every table, no privileges for the public roles). The output was not recorded in the repository.
+- **Verified:** the public Data API check (`npm run check:data-api`) was run against the live project by the owner: all six tables answered 401 with the database error code `42501`, so no table is readable with the public key. The catalog query on the live database agrees (row level security on every table, no privileges for the public roles).
+- **Verified:** the first scheduled cron run happened on 2026-10-23 at 03:00:03 UTC and the keep-alive route answered 200 (request log, caller `vercel-cron/1.0`). Vercel's dashboard states that cron jobs on the free plan run within a flexible one-hour window from the scheduled time; this one ran at the start of it.
 
 **Not verified yet:**
 
 - Whether the daily keep-alive is enough to stop Supabase pausing the project. Supabase's documentation (checked 2026-10-22) says a free project is paused after one week of low activity, and that a few requests to the database each day are typically enough; the keep-alive makes one such request a day, but that this exact request counts has not been observed over a full week.
-- The first scheduled cron run (a manual run of the production cron returned 200).
